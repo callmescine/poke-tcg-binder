@@ -392,6 +392,37 @@ input::placeholder { color: var(--muted); }
 .defs dt { display: flex; align-items: center; gap: 7px; color: var(--ink); font-weight: 600; }
 .defs dd { margin: 0; }
 
+/* ---------- profiles ---------- */
+.profile-btn { padding: 4px 12px 4px 4px; gap: 8px; }
+.avatar { width: 28px; height: 28px; border-radius: 50%; display: inline-grid; place-items: center; flex: none; color: #FFFFFF; font: 700 13px/1 var(--font-display); }
+.avatar.empty { background: var(--sheet-2); color: var(--muted); box-shadow: inset 0 0 0 1px var(--line); }
+.pf-name { max-width: 12ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 640px) { .profile-btn { padding: 4px; } .profile-btn .pf-name { display: none; } }
+.profiles {
+  position: fixed; inset: 0; z-index: 55; display: grid; place-items: center;
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+}
+.pf-backdrop { position: absolute; inset: 0; background: var(--scrim); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.pf-panel { position: relative; width: min(460px, 100%); max-height: 100%; overflow: auto; display: grid; gap: 12px; padding: 24px; border-radius: 18px; background: var(--sheet); border: 1px solid var(--line); box-shadow: var(--shadow-lift); }
+.pf-close { position: absolute; top: 12px; right: 12px; }
+.pf-title { margin: 0; padding-right: 44px; font: 700 26px/1.1 var(--font-display); }
+.pf-list { display: grid; gap: 6px; }
+.pf-item { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 8px 12px 8px 8px; border-radius: 12px; border: 1px solid var(--line); background: var(--sheet-2); text-align: left; }
+.pf-item:hover { border-color: var(--muted); }
+.pf-item .avatar { width: 36px; height: 36px; font-size: 15px; }
+.pf-item[aria-current="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.pf-item-name { font-weight: 700; overflow-wrap: anywhere; }
+.pf-item .n { font: 500 12px var(--font-mono); color: var(--muted); }
+.pf-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.pf-row input { flex: 1 1 200px; min-width: 0; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--sheet-2); color: var(--ink); font: 500 14px var(--font-body); }
+.btn.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.btn.danger { color: var(--heart); border-color: color-mix(in srgb, var(--heart) 45%, var(--line)); }
+.pf-edit { border-top: 1px solid var(--line); padding-top: 12px; }
+.pf-edit summary { cursor: pointer; font-weight: 600; font-size: 14px; color: var(--muted); }
+.pf-edit .pf-row { margin-top: 10px; }
+.pf-confirm { margin-top: 10px; padding: 12px; border-radius: 10px; background: color-mix(in srgb, var(--heart) 10%, var(--sheet)); }
+.pf-confirm p { margin: 0 0 8px; font-size: 14px; }
+
 /* ---------- lightbox ---------- */
 .lightbox {
   position: fixed; inset: 0; z-index: 50; display: grid; place-items: center;
@@ -469,6 +500,7 @@ input::placeholder { color: var(--muted); }
     </div>
   </div>
   <div class="top-actions">
+    <button class="btn profile-btn" id="profileBtn" type="button" aria-label="Choose a profile"><span class="avatar empty" aria-hidden="true">?</span><span class="pf-name">Choose profile</span></button>
     <button class="btn" id="favViewBtn" type="button" aria-label="Open favorites binder">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.6s-7.6-4.6-9.6-9.3C1 7.8 3.3 4.4 6.8 4.4c2.1 0 3.6 1.1 5.2 3 1.6-1.9 3.1-3 5.2-3 3.5 0 5.8 3.4 4.4 6.9-2 4.7-9.6 9.3-9.6 9.3z" fill="currentColor"/></svg>
       <span class="fav-label">Favorites</span><span class="n" id="favCount">0</span>
@@ -528,6 +560,23 @@ input::placeholder { color: var(--muted); }
   </div>
 </div>
 
+<div class="profiles" id="profiles" hidden>
+  <div class="pf-backdrop"></div>
+  <div class="pf-panel" role="dialog" aria-modal="true" aria-labelledby="pfTitle">
+    <button class="btn icon-btn pf-close" type="button" data-pf-close aria-label="Close">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+    <p class="kicker">Profiles</p>
+    <h2 class="pf-title" id="pfTitle">Who’s collecting?</h2>
+    <p class="hint" id="pfReason"></p>
+    <div class="pf-list" id="pfList"></div>
+    <form class="pf-row pf-new" data-pf-new autocomplete="off">
+      <input id="pfName" maxlength="24" placeholder="New profile name" aria-label="New profile name" autocomplete="off">
+      <button class="btn primary" type="submit">Add profile</button>
+    </form>
+    <div id="pfManage"></div>
+  </div>
+</div>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <input type="file" id="importFile" accept="application/json,.json" hidden>
 
@@ -543,8 +592,6 @@ input::placeholder { color: var(--muted); }
   const KEY = 'kanto-art-card-index:v1'; // kept from the first version so saved favorites carry over
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const narrow = matchMedia('(max-width: 859px)');
-  const SITE_URL = 'https://callmescine.github.io/poke-tcg-binder/';
-  const onSite = location.origin === 'https://callmescine.github.io' && location.pathname.startsWith('/poke-tcg-binder');
 
   const REGIONS = [
     { k: 'kanto', name: 'Kanto', lo: 1, hi: 151 },
@@ -603,16 +650,28 @@ input::placeholder { color: var(--muted); }
   const byDex = new Map(MON.map(m => [m.id, []]));
   cards.forEach(c => c.dex.forEach(d => byDex.get(d).push(c)));
 
-  /* ---------- saving ---------- */
+  /* ---------- saving ----------
+     Settings stay in this browser. Favorites belong to profiles, which live in a Firebase Realtime Database,
+     so every device sees them. There is no sign-in: anyone with the link can pick, change or delete any
+     profile. Each change is written one card at a time, so two devices editing the same profile don't
+     overwrite each other, and changes made while offline wait in a queue until the database is reachable. */
   let storageOK = true;
-  function readSaved() {
-    try {
-      localStorage.setItem(KEY + ':check', '1');
-      localStorage.removeItem(KEY + ':check');
-      return JSON.parse(localStorage.getItem(KEY)) || {};
-    } catch (e) { storageOK = false; return {}; }
+  function readJSON(key, fallback) {
+    try { const v = JSON.parse(localStorage.getItem(key)); return v == null ? fallback : v; } catch (e) { return fallback; }
   }
-  const saved = readSaved();
+  function writeJSON(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { storageOK = false; }
+  }
+  try { localStorage.setItem(KEY + ':check', '1'); localStorage.removeItem(KEY + ':check'); } catch (e) { storageOK = false; }
+  const saved = readJSON(KEY, {}) || {};
+  const PROFILE_KEY = KEY + ':profile';
+  const CACHE_KEY = KEY + ':profiles';
+  const QUEUE_KEY = KEY + ':pending';
+  const LEGACY_KEY = KEY + ':this-browser';
+  // favorites saved by earlier versions in this browser wait here until they're added to a profile
+  if ((Array.isArray(saved.favC) && saved.favC.length) || (Array.isArray(saved.favP) && saved.favP.length)) {
+    if (!readJSON(LEGACY_KEY, null)) writeJSON(LEGACY_KEY, { favC: saved.favC || [], favP: saved.favP || [] });
+  }
   function toFavMap(list) {
     const m = new Map();
     if (!Array.isArray(list)) return m;
@@ -628,27 +687,15 @@ input::placeholder { color: var(--muted); }
     const m = new Map();
     if (!Array.isArray(list)) return m;
     list.forEach(x => {
-      if (Number.isInteger(x)) m.set(x, 1); // earlier versions stored plain numbers
+      if (Number.isInteger(x)) m.set(x, 1);
       else if (Array.isArray(x) && Number.isInteger(x[0])) m.set(x[0], +x[1] || 1);
     });
     return m;
   }
-  function toTombMap(list, dex) {
-    const m = new Map();
-    if (!Array.isArray(list)) return m;
-    list.forEach(x => { if (Array.isArray(x) && (dex ? Number.isInteger(x[0]) : typeof x[0] === 'string') && +x[1] > 0) m.set(x[0], +x[1]); });
-    return m;
-  }
-  function setFav(map, tomb, key, on) {
-    const now = Date.now();
-    if (on) { map.set(key, Math.max(now, (tomb.get(key) || 0) + 1)); tomb.delete(key); }
-    else { tomb.set(key, Math.max(now, (map.get(key) || 0) + 1)); map.delete(key); }
-  }
   const state = {
-    favP: toDexMap(saved.favP),
-    favC: toFavMap(saved.favC),
-    tombP: toTombMap(saved.tombP, true),
-    tombC: toTombMap(saved.tombC, false),
+    favP: new Map(),
+    favC: new Map(),
+    pid: readJSON(PROFILE_KEY, null),
     cats: new Set(Array.isArray(saved.cats) ? saved.cats.filter(k => CAT[k]) : DEFAULT_CATS),
     sort: saved.sort === 'old' ? 'old' : 'new',
     group: saved.group === 'era' ? 'era' : 'rarity',
@@ -657,301 +704,184 @@ input::placeholder { color: var(--muted); }
     binderSort: ['dex', 'added', 'release'].includes(saved.binderSort) ? saved.binderSort : 'dex',
     binderRegion: ['all', 'kanto', 'johto', 'hoenn'].includes(saved.binderRegion) ? saved.binderRegion : 'all',
     spread: Number.isInteger(saved.spread) ? saved.spread : 0,
-    updated: +saved.updated || 0,
     last: saved.last,
     listMode: 'all', query: '', cardQuery: '', view: null,
     lbList: [], lbIndex: -1
   };
-  function save(changed) {
-    if (changed) state.updated = Date.now();
-    try {
-      localStorage.setItem(KEY, JSON.stringify({
-        v: 3, favP: Array.from(state.favP.entries()), favC: Array.from(state.favC.entries()),
-        tombP: Array.from(state.tombP.entries()), tombC: Array.from(state.tombC.entries()), cats: Array.from(state.cats),
-        sort: state.sort, group: state.group, theme: state.theme, last: state.view, favView: state.favView,
-        binderSort: state.binderSort, binderRegion: state.binderRegion, spread: state.spread, updated: state.updated
-      }));
-    } catch (e) { storageOK = false; }
-    if (changed) { scheduleBackup(); scheduleSync(); askPersist(); }
-  }
-  let persistAsked = false;
-  function askPersist() {
-    // Asks the browser not to clear this data when the disk runs low. Chrome and Safari decide silently;
-    // Firefox would show a prompt, so it is skipped there.
-    if (persistAsked || !navigator.storage || !navigator.storage.persist || /Firefox\//.test(navigator.userAgent)) return;
-    persistAsked = true;
-    navigator.storage.persist().catch(() => {});
-  }
-
-  /* backup file: Chrome and Edge can keep a JSON copy on disk up to date */
-  const fsaSupported = typeof window.showSaveFilePicker === 'function';
-  const backup = { handle: null, status: fsaSupported ? 'none' : 'unsupported', name: '', at: 0 };
-  function idb(mode, fn) {
-    return new Promise((resolve, reject) => {
-      const open = indexedDB.open('pokedex-art-card-index', 1);
-      open.onupgradeneeded = () => open.result.createObjectStore('kv');
-      open.onerror = () => reject(open.error);
-      open.onsuccess = () => {
-        const db = open.result;
-        const tx = db.transaction('kv', mode);
-        const req = fn(tx.objectStore('kv'));
-        tx.oncomplete = () => { db.close(); resolve(req && req.result); };
-        tx.onerror = () => { db.close(); reject(tx.error); };
-      };
+  function save() {
+    writeJSON(KEY, {
+      v: 4, cats: Array.from(state.cats), sort: state.sort, group: state.group, theme: state.theme, last: state.view,
+      favView: state.favView, binderSort: state.binderSort, binderRegion: state.binderRegion, spread: state.spread
     });
   }
+
+  /* profiles in Firebase: /profiles/{id} = { name, color, created, updated, cards: {cardId: addedAt}, pokemon: {dex: starredAt} } */
+  const DB_URL = 'https://pokemontcg-5f452-default-rtdb.asia-southeast1.firebasedatabase.app';
+  const PALETTE = ['#E4572E', '#2F80ED', '#13A37F', '#D9930D', '#8B5CF6', '#E2498A', '#0F9AA8', '#5B6CF0', '#6E9F1A', '#D64545', '#1E9BD7', '#A15CD6'];
+  const cloud = { profiles: readJSON(CACHE_KEY, {}), queue: readJSON(QUEUE_KEY, []), status: 'idle', at: 0, flushing: false, lastPull: 0, loaded: false, refused: 0 };
+  if (!cloud.profiles || typeof cloud.profiles !== 'object' || Array.isArray(cloud.profiles)) cloud.profiles = {};
+  if (!Array.isArray(cloud.queue)) cloud.queue = [];
+  const validKey = k => /^[A-Za-z0-9_-]{1,60}$/.test(k);
+
+  function applyPatch(p, patch) {
+    Object.keys(patch).forEach(path => {
+      const parts = path.split('/');
+      let o = p;
+      for (let i = 0; i < parts.length - 1; i++) {
+        if (!o[parts[i]] || typeof o[parts[i]] !== 'object') o[parts[i]] = {};
+        o = o[parts[i]];
+      }
+      if (patch[path] === null) delete o[parts[parts.length - 1]];
+      else o[parts[parts.length - 1]] = patch[path];
+    });
+    return p;
+  }
+  const profileList = () => Object.keys(cloud.profiles)
+    .filter(pid => cloud.profiles[pid] && typeof cloud.profiles[pid].name === 'string')
+    .sort((a, b) => (cloud.profiles[a].created || 0) - (cloud.profiles[b].created || 0));
+  const activeProfile = () => (state.pid && cloud.profiles[state.pid] && typeof cloud.profiles[state.pid].name === 'string') ? cloud.profiles[state.pid] : null;
+  const profileColor = p => PALETTE[(p && Number.isInteger(p.color) ? p.color : 0) % PALETTE.length];
+  const initial = p => esc((p.name.trim().charAt(0) || '?').toUpperCase());
+  function loadActive() {
+    const p = activeProfile();
+    state.favC = new Map(Object.entries((p && p.cards) || {}).map(([k, v]) => [k, +v || 1]));
+    state.favP = new Map(Object.entries((p && p.pokemon) || {}).map(([k, v]) => [+k, +v || 1]).filter(([k]) => Number.isInteger(k)));
+  }
+  function saveCloud() { writeJSON(CACHE_KEY, cloud.profiles); writeJSON(QUEUE_KEY, cloud.queue); }
+  function queueWrite(pid, patch) {
+    patch.updated = Date.now();
+    applyPatch(cloud.profiles[pid] || (cloud.profiles[pid] = {}), patch);
+    cloud.queue.push({ pid, patch });
+    saveCloud();
+    flushQueue();
+  }
+  async function flushQueue() {
+    if (cloud.flushing || !cloud.queue.length) return;
+    cloud.flushing = true;
+    cloud.status = 'saving';
+    renderCloud();
+    try {
+      while (cloud.queue.length) {
+        const op = cloud.queue[0];
+        const res = await fetch(`${DB_URL}/profiles/${encodeURIComponent(op.pid)}.json`,
+          op.del ? { method: 'DELETE' } : { method: 'PATCH', body: JSON.stringify(op.patch) });
+        if (res.status >= 500 || res.status === 429) throw new Error('server');
+        if (!res.ok) cloud.refused++; // the database turned this change down, for example because the profile was deleted elsewhere
+        cloud.queue.shift();
+        saveCloud();
+      }
+      cloud.status = 'ok';
+      cloud.at = Date.now();
+    } catch (e) {
+      cloud.status = 'offline';
+    }
+    cloud.flushing = false;
+    if (cloud.refused) { toast('A change couldn’t be saved. The profile may have been renamed or deleted on another device.', 6000); cloud.refused = 0; }
+    renderCloud();
+  }
+  async function pullProfiles() {
+    cloud.lastPull = Date.now();
+    try {
+      const res = await fetch(`${DB_URL}/profiles.json`, { cache: 'no-store' });
+      if (!res.ok) throw new Error('http');
+      const data = (await res.json()) || {};
+      cloud.queue.forEach(op => { if (op.del) delete data[op.pid]; else applyPatch(data[op.pid] || (data[op.pid] = {}), op.patch); });
+      cloud.profiles = data;
+      cloud.loaded = true;
+      if (!cloud.flushing) cloud.status = 'ok';
+      cloud.at = Date.now();
+      saveCloud();
+      if (state.pid && !activeProfile()) { state.pid = null; writeJSON(PROFILE_KEY, null); }
+      loadActive();
+      refreshAll();
+      renderProfileBtn();
+      renderProfiles();
+      flushQueue();
+    } catch (e) {
+      cloud.status = 'offline';
+      renderCloud();
+    }
+  }
+  function slug(s) {
+    return (s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'collector').slice(0, 16);
+  }
+  let pendingAction = null; // a heart or star tapped before any profile was chosen
+  function createProfile(name) {
+    name = name.trim().slice(0, 24);
+    if (!name) return;
+    const pid = slug(name) + '-' + Math.random().toString(36).slice(2, 6);
+    queueWrite(pid, { name, color: profileList().length % PALETTE.length, created: Date.now() });
+    switchProfile(pid, true);
+  }
+  function switchProfile(pid, isNew) {
+    if (!cloud.profiles[pid]) return;
+    state.pid = pid;
+    writeJSON(PROFILE_KEY, pid);
+    mergeLegacy();
+    loadActive();
+    closeProfiles();
+    renderProfileBtn();
+    refreshAll();
+    const p = activeProfile();
+    toast(isNew ? `Made ${p.name}’s profile. Tap a heart to start the binder.` : `Switched to ${p.name}`);
+    if (pendingAction) { const run = pendingAction; pendingAction = null; run(); }
+  }
+  function renameProfile(name) {
+    name = name.trim().slice(0, 24);
+    if (!name || !activeProfile()) return;
+    queueWrite(state.pid, { name });
+    renderProfileBtn();
+    renderProfiles();
+    refreshAll();
+    toast(`Renamed to ${name}`);
+  }
+  function deleteProfile() {
+    const p = activeProfile();
+    if (!p) return;
+    const pid = state.pid;
+    delete cloud.profiles[pid];
+    cloud.queue = cloud.queue.filter(op => op.pid !== pid);
+    cloud.queue.push({ pid, del: true });
+    saveCloud();
+    state.pid = null;
+    writeJSON(PROFILE_KEY, null);
+    loadActive();
+    renderProfileBtn();
+    renderProfiles();
+    refreshAll();
+    flushQueue();
+    toast(`Deleted ${p.name}’s profile`);
+  }
+  function mergeLegacy() {
+    const old = readJSON(LEGACY_KEY, null);
+    const p = activeProfile();
+    if (!old || !p) return;
+    const patch = {};
+    toFavMap(old.favC).forEach((ts, id) => { if (validKey(id) && !(p.cards || {})[id]) patch['cards/' + id] = ts; });
+    toDexMap(old.favP).forEach((ts, dex) => { if (dex >= 1 && dex <= MAX_DEX && !(p.pokemon || {})[dex]) patch['pokemon/' + dex] = ts; });
+    try { localStorage.removeItem(LEGACY_KEY); } catch (e) { /* nothing to clear */ }
+    const n = Object.keys(patch).length;
+    if (n) {
+      queueWrite(state.pid, patch);
+      setTimeout(() => toast(`Added ${plural(n, 'favorite')} saved earlier in this browser to ${p.name}’s profile`, 6000), 400);
+    }
+  }
   function payload() {
+    const p = activeProfile();
     return {
-      app: 'Pokédex Art Card Index', version: 2, exported: new Date().toISOString(),
+      app: 'Pokédex Art Card Index', version: 4, profile: p ? p.name : '', exported: new Date().toISOString(),
       pokemon: Array.from(state.favP.keys()).sort((a, b) => a - b),
       cards: Array.from(state.favC.entries()).map(([id, ts]) => ({ id, name: byId.has(id) ? byId.get(id).n : undefined, added: new Date(ts).toISOString() }))
     };
   }
-  function mergePayload(j) {
-    if (!j || typeof j !== 'object') throw new Error('not a backup');
-    const p = (Array.isArray(j.pokemon) ? j.pokemon : []).filter(n => Number.isInteger(n) && n >= 1 && n <= MAX_DEX);
-    const incoming = toFavMap(j.cards);
-    if (!p.length && !incoming.size && !Array.isArray(j.cards)) throw new Error('not a backup');
-    let cardsAdded = 0, monsAdded = 0;
-    p.forEach(n => { if (!state.favP.has(n)) { setFav(state.favP, state.tombP, n, true); monsAdded++; } });
-    incoming.forEach((ts, id) => {
-      if (state.favC.has(id)) return;
-      state.favC.set(id, Math.max(ts, (state.tombC.get(id) || 0) + 1)); // an import is a fresh add, even over an older removal
-      state.tombC.delete(id);
-      cardsAdded++;
-    });
-    return { cards: cardsAdded, pokemon: monsAdded, total: cardsAdded + monsAdded };
-  }
-  function addedText(a) {
-    return [a.cards ? plural(a.cards, 'card') : '', a.pokemon ? plural(a.pokemon, 'starred Pokémon', 'starred Pokémon') : ''].filter(Boolean).join(' and ');
-  }
-  // Favorites travel inside the link's #fragment, which browsers never send to the web server.
-  function transferUrl() {
-    const bytes = new TextEncoder().encode(JSON.stringify({ p: Array.from(state.favP.keys()), c: Array.from(state.favC.entries()) }));
-    let bin = '';
-    bytes.forEach(b => { bin += String.fromCharCode(b); });
-    return SITE_URL + '#import=' + btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  }
-  function readTransfer(code) {
-    const bin = atob(code.replace(/-/g, '+').replace(/_/g, '/'));
-    const j = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, ch => ch.charCodeAt(0))));
-    return { pokemon: j.p, cards: j.c };
-  }
-  function copyLink() {
-    const done = () => toast('Link copied. Open it on your phone or in another browser to add these favorites there.');
-    const fail = () => toast('This browser blocked copying. Use Download backup instead.');
-    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(transferUrl()).then(done, fail); else fail();
-  }
-  async function initBackup() {
-    if (!fsaSupported) return;
-    try { backup.handle = await idb('readonly', s => s.get('backupHandle')); } catch (e) { backup.handle = null; }
-    if (!backup.handle) { backup.status = 'none'; return renderSafe(); }
-    backup.name = backup.handle.name;
-    let perm = 'prompt';
-    try { perm = await backup.handle.queryPermission({ mode: 'readwrite' }); } catch (e) { /* treat as prompt */ }
-    if (perm === 'granted') { backup.status = 'active'; await pullBackup(); }
-    else {
-      backup.status = 'reconnect';
-      if (!state.favC.size && !state.favP.size) showNotice('restore');
-    }
-    renderSafe();
-  }
-  async function pullBackup() {
-    try {
-      const text = await (await backup.handle.getFile()).text();
-      if (!text.trim()) return writeBackup();
-      const added = mergePayload(JSON.parse(text));
-      if (added.total) { save(true); refreshAll(); toast(`Restored ${addedText(added)} from ${backup.name}`); }
-      else writeBackup();
-    } catch (e) { writeBackup(); }
-  }
-  async function connectBackup() {
-    try {
-      const h = await window.showSaveFilePicker({ suggestedName: 'pokedex-art-favorites.json', types: [{ description: 'Favorites backup', accept: { 'application/json': ['.json'] } }] });
-      backup.handle = h; backup.name = h.name; backup.status = 'active';
-      try { await idb('readwrite', s => s.put(h, 'backupHandle')); } catch (e) { /* remembered for this visit only */ }
-      await pullBackup();
-      hideNotice();
-      renderSafe();
-    } catch (e) { if (e && e.name !== 'AbortError') toast('Couldn’t set up the backup file. Try a different folder.'); }
-  }
-  async function reconnectBackup() {
-    try {
-      const p = await backup.handle.requestPermission({ mode: 'readwrite' });
-      if (p === 'granted') { backup.status = 'active'; hideNotice(); await pullBackup(); renderSafe(); }
-    } catch (e) { toast('The browser didn’t allow access to the backup file.'); }
-  }
-  function stopBackup() {
-    backup.handle = null; backup.status = 'none'; backup.name = '';
-    idb('readwrite', s => s.delete('backupHandle')).catch(() => {});
-    renderSafe();
-  }
-  let backupTimer = 0;
-  function scheduleBackup() {
-    if (backup.status !== 'active') return;
-    clearTimeout(backupTimer);
-    backupTimer = setTimeout(writeBackup, 700);
-  }
-  async function writeBackup() {
-    if (!backup.handle || backup.status !== 'active') return;
-    try {
-      const w = await backup.handle.createWritable();
-      await w.write(JSON.stringify(payload(), null, 2));
-      await w.close();
-      backup.at = Date.now();
-    } catch (e) { backup.status = 'reconnect'; }
-    renderSafe();
-  }
-
-
-  /* ---------- GitHub sync ----------
-     Favorites live in favorites.json on the favorites-data branch of the site's repo, so every browser
-     that opens the site sees them. Anyone can read that file; saving changes needs the owner's token,
-     which stays in this browser and is only sent to api.github.com. When two browsers change the
-     same card, the most recent change wins; removals are remembered so they sync too. */
-  const GH = { owner: 'callmescine', repo: 'poke-tcg-binder', branch: 'favorites-data', path: 'favorites.json' };
-  const GH_API = `https://api.github.com/repos/${GH.owner}/${GH.repo}`;
-  const TOKEN_KEY = KEY + ':github-token';
-  const TOKEN_URL = 'https://github.com/settings/personal-access-tokens/new?name=' + encodeURIComponent('Pokedex binder sync')
-    + '&target_name=' + GH.owner + '&contents=write';
-  const sync = { token: '', status: 'idle', at: 0, error: '', badToken: false, lastPull: 0, timer: 0, running: null, again: false, nudged: false, sha: null };
-  try { sync.token = localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { sync.token = ''; }
-  let tokenDraft = '';
-
-  function ghHeaders(json) {
-    const h = { Accept: 'application/vnd.github+json' };
-    if (sync.token) h.Authorization = 'Bearer ' + sync.token;
-    if (json) h['Content-Type'] = 'application/json';
-    return h;
-  }
-  function ghError(status, writing) {
-    if (status === 401 || (writing && (status === 403 || status === 404))) return new Error('token');
-    if (status === 403 || status === 429) return new Error('limit');
-    return new Error('network');
-  }
-  const b64encode = text => { let bin = ''; new TextEncoder().encode(text).forEach(b => { bin += String.fromCharCode(b); }); return btoa(bin); };
-  const b64decode = b64 => new TextDecoder().decode(Uint8Array.from(atob(b64.replace(/\s/g, '')), ch => ch.charCodeAt(0)));
-
-  function snapshot() {
-    return {
-      app: 'Pokédex Art Card Index', version: 3, updated: new Date().toISOString(),
-      pokemon: Array.from(state.favP.entries()), cards: Array.from(state.favC.entries()),
-      removedPokemon: Array.from(state.tombP.entries()), removedCards: Array.from(state.tombC.entries())
-    };
-  }
-  const remoteMaps = j => [toFavMap(j.cards), toTombMap(j.removedCards, false), toDexMap(j.pokemon), toTombMap(j.removedPokemon, true)];
-  const canon = (...maps) => JSON.stringify(maps.map(m => Array.from(m.entries()).map(e => e.join('|')).sort()));
-  function mergeInto(fav, tomb, rFav, rTomb) {
-    let changed = false;
-    new Set([...fav.keys(), ...tomb.keys(), ...rFav.keys(), ...rTomb.keys()]).forEach(k => {
-      const add = Math.max(fav.get(k) || 0, rFav.get(k) || 0);
-      const rem = Math.max(tomb.get(k) || 0, rTomb.get(k) || 0);
-      if (add > rem) {
-        if (!fav.has(k)) changed = true;
-        fav.set(k, add);
-        tomb.delete(k);
-      } else {
-        if (fav.has(k)) changed = true;
-        fav.delete(k);
-        tomb.set(k, rem);
-      }
-    });
-    return changed;
-  }
-
-  async function pullRemote() {
-    const res = await fetch(`${GH_API}/contents/${GH.path}?ref=${GH.branch}`, { cache: 'no-store', headers: ghHeaders(false) });
-    if (res.status === 404) { sync.sha = null; return null; }
-    if (!res.ok) throw ghError(res.status, false);
-    const f = await res.json();
-    sync.sha = f.sha;
-    const text = f.content ? b64decode(f.content) : '';
-    return text.trim() ? JSON.parse(text) : null;
-  }
-  async function ensureBranch() {
-    const head = await fetch(`${GH_API}/git/ref/heads/${GH.branch}`, { cache: 'no-store', headers: ghHeaders(false) });
-    if (head.ok) return;
-    if (head.status !== 404) throw ghError(head.status, true);
-    const main = await fetch(`${GH_API}/git/ref/heads/main`, { cache: 'no-store', headers: ghHeaders(false) });
-    if (!main.ok) throw ghError(main.status, true);
-    const made = await fetch(`${GH_API}/git/refs`, {
-      method: 'POST', headers: ghHeaders(true),
-      body: JSON.stringify({ ref: `refs/heads/${GH.branch}`, sha: (await main.json()).object.sha })
-    });
-    if (!made.ok && made.status !== 422) throw ghError(made.status, true); // 422: it was just created elsewhere
-  }
-  async function pushRemote() {
-    if (!sync.sha) await ensureBranch();
-    const body = { message: 'Update favorites', branch: GH.branch, content: b64encode(JSON.stringify(snapshot(), null, 1)) };
-    if (sync.sha) body.sha = sync.sha;
-    const res = await fetch(`${GH_API}/contents/${GH.path}`, { method: 'PUT', headers: ghHeaders(true), body: JSON.stringify(body) });
-    if (res.status === 409 || res.status === 422) return false; // changed elsewhere since we read it; pull and try again
-    if (!res.ok) throw ghError(res.status, true);
-    sync.sha = (await res.json()).content.sha;
-    return true;
-  }
-  function syncNow() {
-    if (sync.running) { sync.again = true; return sync.running; }
-    sync.running = (async () => {
-      sync.status = 'syncing';
-      renderSafe();
-      try {
-        for (let attempt = 0; attempt < 3 && sync.status === 'syncing'; attempt++) {
-          const remote = await pullRemote();
-          sync.lastPull = Date.now();
-          sync.remoteExists = !!remote;
-          const r = remote ? remoteMaps(remote) : [new Map(), new Map(), new Map(), new Map()];
-          const cardsChanged = mergeInto(state.favC, state.tombC, r[0], r[1]);
-          const monsChanged = mergeInto(state.favP, state.tombP, r[2], r[3]);
-          save(false);
-          if (cardsChanged || monsChanged) refreshAll();
-          if (!sync.token) sync.status = 'readonly';
-          else if (remote && canon(state.favC, state.tombC, state.favP, state.tombP) === canon(r[0], r[1], r[2], r[3])) sync.status = 'ok';
-          else if (await pushRemote()) sync.status = 'ok';
-        }
-        if (sync.status === 'syncing') throw new Error('network');
-        sync.at = Date.now();
-        sync.error = '';
-      } catch (e) {
-        sync.status = 'error';
-        sync.error = e && (e.message === 'token' || e.message === 'limit') ? e.message : 'network';
-      }
-      sync.running = null;
-      renderSafe();
-      if (sync.again) { sync.again = false; syncNow(); }
-    })();
-    return sync.running;
-  }
-  function scheduleSync() {
-    if (!sync.token) return;
-    clearTimeout(sync.timer);
-    sync.timer = setTimeout(syncNow, 1200);
-  }
-  function forgetToken() {
-    sync.token = '';
-    try { localStorage.removeItem(TOKEN_KEY); } catch (e) { /* nothing stored */ }
-  }
-  function nudgeSync() {
-    if (sync.token || sync.nudged || !storageOK) return;
-    sync.nudged = true;
-    toast('Saved in this browser. To sync it everywhere, add your GitHub token in Favorites.', 5000);
-  }
-  function syncItemHTML() {
-    const form = `<form class="token-form" data-token-form autocomplete="off"><input type="password" id="tokenInput" placeholder="Paste your GitHub token" aria-label="GitHub token" spellcheck="false" autocomplete="off"><button class="btn" type="submit">Save token</button></form>`;
-    const how = `<ol class="token-steps"><li><a href="${TOKEN_URL}" target="_blank" rel="noopener">Open GitHub’s new-token page</a>. Under <b>Repository access</b>, choose <b>Only select repositories</b> and pick <b>${GH.repo}</b>. Under <b>Permissions</b>, set <b>Contents</b> to <b>Read and write</b>. Choose an expiration, then click <b>Generate token</b>.</li><li>Copy the token and paste it below. It stays in this browser and is only sent to GitHub.</li></ol>`;
-    const retry = '<button class="link-btn" type="button" data-sync="now">Try again</button>';
-    if (!sync.token) {
-      if (sync.status === 'error' && sync.error === 'limit') return `<li class="warn"><i></i><div><p>GitHub is limiting requests from your network.</p><p class="sub">Your favorites are safe in this browser. ${retry} in a few minutes.</p></div></li>`;
-      if (sync.status === 'error' && sync.error === 'network') return `<li class="warn"><i></i><div><p>Couldn’t reach GitHub.</p><p class="sub">Your favorites are safe in this browser. ${retry}</p>${form}</div></li>`;
-      if (sync.badToken) return `<li class="warn"><i></i><div><p>GitHub didn’t accept that token.</p><p class="sub">It needs access to ${GH.repo} with Contents set to Read and write. Make a new one:</p>${how}${form}</div></li>`;
-      if (sync.status === 'readonly' && !sync.remoteExists) return `<li class="idle"><i></i><div><p>GitHub sync isn’t set up yet.</p><p class="sub">Favorites you add are saved in this browser only, so a private window, another browser or your phone won’t see them. To share them with every browser, save your GitHub token once here, in the browser that has your favorites:</p>${how}${form}</div></li>`;
-      return `<li class="idle"><i></i><div><p>${sync.status === 'readonly' ? 'Showing your favorites from GitHub.' : 'Checking GitHub…'}</p><p class="sub">Every browser that opens the site sees them. To save changes you make here, add your GitHub token once in this browser:</p>${how}${form}</div></li>`;
-    }
-    if (sync.status === 'ok') return `<li><i></i><div><p>Synced with GitHub.</p><p class="sub">Changes here show up in every browser that opens the site${sync.at ? `. Last synced ${fmtTime(sync.at)}` : ''}. <button class="link-btn" type="button" data-sync="now">Sync now</button> · <button class="link-btn" type="button" data-sync="forget">Remove token from this browser</button></p></div></li>`;
-    if (sync.status === 'error' && sync.error === 'token') return `<li class="warn"><i></i><div><p>GitHub didn’t accept your token.</p><p class="sub">It may have expired or lost access to ${GH.repo}. Your changes are saved in this browser. Make a new token and paste it here:</p>${how}${form}</div></li>`;
-    if (sync.status === 'error' && sync.error === 'limit') return `<li class="warn"><i></i><div><p>GitHub is limiting requests from your network.</p><p class="sub">Changes are saved in this browser and sync later. ${retry}</p></div></li>`;
-    if (sync.status === 'error') return `<li class="warn"><i></i><div><p>Couldn’t sync with GitHub.</p><p class="sub">Changes are saved in this browser and sync next time. ${retry} · <button class="link-btn" type="button" data-sync="forget">Remove token from this browser</button></p></div></li>`;
-    return `<li class="idle"><i></i><div><p>Syncing with GitHub…</p></div></li>`;
+  function importPayload(j) {
+    if (!j || typeof j !== 'object' || (!Array.isArray(j.cards) && !Array.isArray(j.pokemon))) throw new Error('not a backup');
+    const patch = {};
+    toFavMap(j.cards).forEach((ts, id) => { if (validKey(id) && !state.favC.has(id)) patch['cards/' + id] = ts; });
+    toDexMap(j.pokemon).forEach((ts, dex) => { if (dex >= 1 && dex <= MAX_DEX && !state.favP.has(dex)) patch['pokemon/' + dex] = ts; });
+    const n = Object.keys(patch).length;
+    if (n) { queueWrite(state.pid, patch); loadActive(); }
+    return n;
   }
 
   const main = $('#main');
@@ -1176,18 +1106,19 @@ ${aboutHTML()}`;
   }
 
   function renderFav() {
+    const p = activeProfile();
     const all = favCards();
     const mons = Array.from(state.favP.keys()).filter(id => MON[id - 1]).sort((a, b) => a - b);
     main.innerHTML = `<button class="btn back-btn" type="button" data-back>← All Pokémon</button>
 <section class="fav-head">
   <div>
-    <p class="kicker">Your collection</p>
-    <h2 class="mon-name">Favorites</h2>
-    <p class="summary"><b>${plural(all.length, 'card')}</b> · ${plural(mons.length, 'starred Pokémon', 'starred Pokémon')}</p>
+    <p class="kicker">${p ? 'Profile' : 'Your collection'}</p>
+    <h2 class="mon-name">${p ? `${esc(p.name)}’s favorites` : 'Favorites'}</h2>
+    <p class="summary">${p ? `<b>${plural(all.length, 'card')}</b> · ${plural(mons.length, 'starred Pokémon', 'starred Pokémon')}` : 'Each person keeps their own binder. Pick yours to see it.'}</p>
   </div>
   <div class="fav-side">
     <p class="save-line" id="saveLine"></p>
-    ${!onSite && all.length + mons.length ? `<a class="btn" href="${transferUrl()}" target="_blank" rel="noopener">Add these to the website ↗</a>` : ''}
+    <button class="btn" type="button" data-pf-open>${p ? 'Switch profile' : 'Choose a profile'}</button>
   </div>
 </section>
 <div class="toolbar fav-toolbar">
@@ -1213,6 +1144,10 @@ ${aboutHTML()}`;
     const body = $('#favBody');
     if (!body) return;
     const arr = binderList();
+    if (!activeProfile()) {
+      body.innerHTML = '<div class="empty"><h3>Choose a profile</h3><p>Each person keeps their own binder, saved online so it opens on any device. Pick yours or add a new one.</p><div class="row"><button class="btn" type="button" data-pf-open>Choose a profile</button></div></div>';
+      return;
+    }
     if (!arr.length) {
       const any = state.favC.size > 0;
       body.innerHTML = `<div class="empty"><h3>${any ? `No ${REGIONS.find(r => r.k === state.binderRegion).name} favorites yet` : 'No favorite cards yet'}</h3>
@@ -1343,40 +1278,71 @@ ${aboutHTML()}`;
   function jumpSpread(n) { state.spread = n; save(false); drawSpread(); }
 
   function renderSafe() {
+    const p = activeProfile();
     const line = $('#saveLine');
     if (line) {
-      const syncText = {
-        ok: `Synced with GitHub${sync.at ? ` · ${fmtTime(sync.at)}` : ''}`, syncing: 'Syncing with GitHub…',
-        readonly: sync.remoteExists ? 'From GitHub · add your token below to save changes there' : `Saved in this browser only${state.updated ? ` · last change ${fmtTime(state.updated)}` : ''}`,
-        error: 'Not synced with GitHub · see below'
-      }[sync.status];
-      line.className = 'save-line' + (!storageOK || sync.status === 'error' ? ' warn' : sync.status === 'readonly' ? ' idle' : '');
-      line.innerHTML = !storageOK ? '<i></i>Not saving in this window'
-        : syncText ? `<i></i>${syncText}` : `<i></i>Saved in this browser${state.updated ? ` · last change ${fmtTime(state.updated)}` : ''}`;
+      const text = !p ? 'No profile chosen'
+        : { saving: 'Saving…', offline: 'Offline · changes upload when you’re back online' }[cloud.status] || 'Saved online · opens on any device';
+      line.className = 'save-line' + (!p ? ' idle' : cloud.status === 'offline' ? ' warn' : '');
+      line.innerHTML = `<i></i>${text}`;
     }
     const box = $('#safekeep');
     if (!box) return;
-    const items = [syncItemHTML()];
-    items.push(storageOK
-      ? `<li><i></i><div><p>Saved automatically in this browser.</p><p class="sub">Favorites stay after you quit or restart Safari or Chrome, and after you move this file to another folder. Clearing the browser’s website data erases them, so keep a backup file too.</p></div></li>`
-      : `<li class="warn"><i></i><div><p>This window can’t save favorites.</p><p class="sub">Open the HTML file directly in Safari or Chrome (not a private window, not inside another app) so favorites are kept after restarts.</p></div></li>`);
-    if (backup.status === 'active') {
-      items.push(`<li><i></i><div><p>Backup file: auto-saving to <b>${esc(backup.name)}</b>.</p><p class="sub">${backup.at ? `Last written ${fmtTime(backup.at)}. ` : ''}Every change is copied to that file on your computer. <button class="link-btn" type="button" data-backup="stop">Stop auto-saving</button></p></div></li>`);
-    } else if (backup.status === 'reconnect') {
-      items.push(`<li class="warn"><i></i><div><p>Backup file <b>${esc(backup.name)}</b> needs permission again.</p><p class="sub">Browsers ask once after a restart. <button class="link-btn" type="button" data-backup="reconnect">Allow and sync</button> · <button class="link-btn" type="button" data-backup="stop">Stop using it</button></p></div></li>`);
-    } else if (backup.status === 'none') {
-      items.push(`<li class="idle"><i></i><div><p>No backup file yet.</p><p class="sub">Pick a file once and this browser keeps it up to date after every change. If you pick an existing backup, its favorites are merged in. <button class="link-btn" type="button" data-backup="connect">Choose a backup file…</button></p></div></li>`);
-    } else {
-      items.push(`<li class="idle"><i></i><div><p>Backup file: download one now and then.</p><p class="sub">This browser can’t update a file by itself (Chrome and Edge can). A downloaded backup brings everything back with Load a backup.</p></div></li>`);
-    }
-    if (!onSite && !sync.token) {
-      items.push(`<li class="idle"><i></i><div><p>Not syncing from this copy yet.</p><p class="sub">This copy is a file on your computer. Add your token above to sync it, or copy its favorites to the website once: <a class="link-btn" href="${transferUrl()}" target="_blank" rel="noopener">Add these favorites to the website</a></p></div></li>`);
-    }
-    const hadFocus = document.activeElement && document.activeElement.id === 'tokenInput';
-    box.innerHTML = `<h3>Keeping your favorites safe</h3><ul class="safe-list">${items.join('')}</ul>
-<div class="safe-actions"><button class="btn" type="button" data-export>Download backup</button><button class="btn" type="button" data-import>Load a backup</button><button class="btn" type="button" data-copylink>Copy link for another device</button></div>`;
-    const ti = $('#tokenInput');
-    if (ti) { ti.value = tokenDraft; if (hadFocus) ti.focus(); }
+    const first = !p
+      ? `<li class="idle"><i></i><div><p>No profile chosen.</p><p class="sub"><button class="link-btn" type="button" data-pf-open>Choose or add a profile</button> to start a binder that shows up on every device.</p></div></li>`
+      : cloud.status === 'offline'
+        ? `<li class="warn"><i></i><div><p>Can’t reach the database right now.</p><p class="sub">Your changes are kept in this browser and upload the next time the site is online${cloud.queue.length ? ` (${plural(cloud.queue.length, 'change')} waiting)` : ''}.</p></div></li>`
+        : `<li><i></i><div><p>Saved online in ${esc(p.name)}’s profile.</p><p class="sub">Open the site on any device or browser, private windows included, pick ${esc(p.name)}, and this binder is there.</p></div></li>`;
+    box.innerHTML = `<h3>How favorites are saved</h3><ul class="safe-list">${first}
+<li class="idle"><i></i><div><p>No passwords.</p><p class="sub">Anyone with this site’s link can open, change or delete any profile. Download a backup now and then. Load a backup adds it back into the profile you have open.</p></div></li></ul>
+<div class="safe-actions"><button class="btn" type="button" data-export${p ? '' : ' disabled'}>Download backup</button><button class="btn" type="button" data-import${p ? '' : ' disabled'}>Load a backup</button></div>`;
+  }
+
+  /* ---------- profile picker ---------- */
+  const pf = $('#profiles');
+  let pfReturn = null;
+  function renderCloud() { renderSafe(); renderProfiles(); }
+  function renderProfileBtn() {
+    const p = activeProfile();
+    const btn = $('#profileBtn');
+    btn.innerHTML = p
+      ? `<span class="avatar" style="background:${profileColor(p)}">${initial(p)}</span><span class="pf-name">${esc(p.name)}</span>`
+      : '<span class="avatar empty" aria-hidden="true">?</span><span class="pf-name">Choose profile</span>';
+    btn.setAttribute('aria-label', p ? `Profile: ${p.name}. Switch profile` : 'Choose a profile');
+  }
+  function renderProfiles() {
+    if (pf.hidden) return;
+    const ids = profileList();
+    $('#pfList').innerHTML = ids.length ? ids.map(pid => {
+      const p = cloud.profiles[pid];
+      const n = Object.keys(p.cards || {}).filter(id => byId.has(id)).length;
+      return `<button class="pf-item" type="button" data-pf-switch="${esc(pid)}"${pid === state.pid ? ' aria-current="true"' : ''}>`
+        + `<span class="avatar" style="background:${profileColor(p)}">${initial(p)}</span><span class="pf-item-name">${esc(p.name)}</span><span class="n">${plural(n, 'card')}</span></button>`;
+    }).join('') : `<p class="hint">${cloud.loaded ? 'No profiles yet. Add the first one below.' : cloud.status === 'offline' ? 'Can’t reach the profile list right now. You can still add a profile below.' : 'Loading profiles…'}</p>`;
+    const p = activeProfile();
+    $('#pfManage').innerHTML = p ? `<details class="pf-edit"><summary>Rename or delete ${esc(p.name)}</summary>
+  <form class="pf-row" data-pf-rename autocomplete="off"><input id="pfRename" maxlength="24" value="${esc(p.name)}" aria-label="New name for ${esc(p.name)}" autocomplete="off"><button class="btn" type="submit">Rename</button></form>
+  <div class="pf-row"><button class="btn danger" type="button" data-pf-delete>Delete this profile…</button></div>
+  <div class="pf-confirm" id="pfConfirm" hidden><p>Delete ${esc(p.name)} and ${plural(state.favC.size, 'favorite')}? It’s removed for everyone who uses this site, and it can’t be undone.</p>
+  <div class="pf-row"><button class="btn danger" type="button" data-pf-delete-yes>Delete</button><button class="btn" type="button" data-pf-delete-no>Keep it</button></div></div>
+</details>` : '';
+  }
+  function openProfiles(reason) {
+    if (pf.hidden) pfReturn = document.activeElement;
+    pf.hidden = false;
+    document.body.classList.add('lb-open');
+    $('#pfReason').textContent = reason || 'Pick your profile to see your binder, or add a new one. There are no passwords: anyone with this link can open any profile.';
+    renderProfiles();
+    if (Date.now() - cloud.lastPull > 15000) pullProfiles();
+    setTimeout(() => { const f = $('#pfList [aria-current]') || $('#pfList button') || $('#pfName'); if (f) f.focus(); }, 0);
+  }
+  function closeProfiles() {
+    if (pf.hidden) return;
+    pf.hidden = true;
+    pendingAction = null;
+    if (lb.hidden) document.body.classList.remove('lb-open');
+    try { sessionStorage.setItem(KEY + ':picker-seen', '1'); } catch (e) { /* asks again next visit */ }
+    if (pfReturn && document.contains(pfReturn)) pfReturn.focus({ preventScroll: true });
   }
 
   function aboutHTML() {
@@ -1490,9 +1456,12 @@ ${aboutHTML()}`;
     $('#favViewBtn').classList.toggle('is-on', n > 0);
   }
   function toggleFav(id) {
+    if (!activeProfile()) { pendingAction = () => toggleFav(id); return openProfiles('Pick or add a profile first. Your favorites are saved to it and show up on any device.'); }
+    if (!validKey(id)) return;
     const on = !state.favC.has(id);
-    setFav(state.favC, state.tombC, id, on);
-    save(true);
+    const ts = Date.now();
+    if (on) state.favC.set(id, ts); else state.favC.delete(id);
+    queueWrite(state.pid, { ['cards/' + id]: on ? ts : null });
     $$('.heart').filter(b => b.dataset.fav === id).forEach(b => {
       b.setAttribute('aria-pressed', String(on));
       b.setAttribute('aria-label', `${on ? 'Remove from' : 'Add to'} favorites`);
@@ -1506,14 +1475,13 @@ ${aboutHTML()}`;
       if (lb.hidden) { const y = window.scrollY; renderFav(); window.scrollTo(0, y); }
       else binder.dirty = true;
     }
-    if (!storageOK) toast('Favorited for now, but this window can’t save. Open the file in Safari or Chrome.');
-    else nudgeSync();
   }
   function toggleStar(id) {
+    if (!activeProfile()) { pendingAction = () => toggleStar(id); return openProfiles('Pick or add a profile first. Starred Pokémon are saved to it.'); }
     const on = !state.favP.has(id);
-    setFav(state.favP, state.tombP, id, on);
-    save(true);
-    nudgeSync();
+    const ts = Date.now();
+    if (on) state.favP.set(id, ts); else state.favP.delete(id);
+    queueWrite(state.pid, { ['pokemon/' + id]: on ? ts : null });
     renderRail();
     markCurrent();
     $$('.star-btn').filter(b => +b.dataset.star === id).forEach(b => {
@@ -1540,15 +1508,9 @@ ${aboutHTML()}`;
   }
   function showNotice(kind) {
     const n = $('#notice');
-    if (kind === 'restore') {
-      n.className = 'notice';
-      n.innerHTML = `<p>Your favorites are empty in this browser, but your backup file <b>${esc(backup.name)}</b> is set up. Allow access to bring them back.</p><div class="row"><button class="btn" type="button" data-backup="reconnect">Restore from backup</button><button class="btn" type="button" data-dismiss>Not now</button></div>`;
-    } else if (kind === 'nostorage') {
+    if (kind === 'nostorage') {
       n.className = 'notice warn';
-      n.innerHTML = `<p><b>Favorites can’t be saved in this window.</b> Open the HTML file directly in Safari or Chrome, outside private browsing, so they stay after restarts.</p><div class="row"><button class="btn" type="button" data-dismiss>OK</button></div>`;
-    } else if (kind === 'embedded') {
-      n.className = 'notice';
-      n.innerHTML = `<p>You’re viewing this page inside another app, which may not keep favorites after it restarts. For favorites that last, open the HTML file in Safari or Chrome.</p><div class="row"><button class="btn" type="button" data-dismiss>OK</button></div>`;
+      n.innerHTML = `<p><b>This window can’t remember your settings or which profile you picked.</b> Favorites still save to your profile online.</p><div class="row"><button class="btn" type="button" data-dismiss>OK</button></div>`;
     }
     n.hidden = false;
     setTopH();
@@ -1556,25 +1518,27 @@ ${aboutHTML()}`;
   function hideNotice() { $('#notice').hidden = true; setTopH(); }
 
   function exportFavs() {
+    const p = activeProfile();
+    if (!p) return;
     const data = payload();
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `pokedex-art-favorites-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `pokedex-art-favorites-${slug(p.name)}-${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(a);
     a.click();
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
-    toast(`Downloaded a backup of ${plural(data.cards.length, 'card')} and ${plural(data.pokemon.length, 'starred Pokémon', 'starred Pokémon')}`);
+    toast(`Downloaded a backup of ${p.name}’s ${plural(data.cards.length, 'card')} and ${plural(data.pokemon.length, 'starred Pokémon', 'starred Pokémon')}`);
   }
   $('#importFile').addEventListener('change', async e => {
     const f = e.target.files[0];
     e.target.value = '';
     if (!f) return;
+    if (!activeProfile()) return toast('Choose a profile first, then load the backup into it.');
     try {
-      const added = mergePayload(JSON.parse(await f.text()));
-      save(true);
+      const n = importPayload(JSON.parse(await f.text()));
       refreshAll();
-      toast(added.total ? `Added ${addedText(added)} from the backup` : 'Everything in that backup is already here');
+      toast(n ? `Added ${plural(n, 'favorite')} to ${activeProfile().name}’s profile` : 'Everything in that backup is already in this profile');
     } catch (err) {
       toast('That file isn’t a favorites backup. Choose the .json file this page saved.');
     }
@@ -1613,14 +1577,15 @@ ${aboutHTML()}`;
     }
     if (d.back !== undefined) { document.body.classList.remove('detail-open'); setTopH(); markCurrent(); window.scrollTo(0, 0); syncRegionTabs(); return; }
     if (d.export !== undefined) return exportFavs();
-    if (d.copylink !== undefined) return copyLink();
-    if (d.sync === 'now') return syncNow();
-    if (d.sync === 'forget') { forgetToken(); sync.status = 'readonly'; renderSafe(); return toast('Token removed from this browser.'); }
     if (d.import !== undefined) return $('#importFile').click();
-    if (d.backup === 'connect') return connectBackup();
-    if (d.backup === 'reconnect') return reconnectBackup();
-    if (d.backup === 'stop') return stopBackup();
+    if (d.pfOpen !== undefined) return openProfiles();
+    if (d.pfClose !== undefined) return closeProfiles();
+    if (d.pfSwitch) return switchProfile(d.pfSwitch);
+    if (d.pfDelete !== undefined) { $('#pfConfirm').hidden = false; return $('[data-pf-delete-no]').focus(); }
+    if (d.pfDeleteNo !== undefined) { $('#pfConfirm').hidden = true; return; }
+    if (d.pfDeleteYes !== undefined) return deleteProfile();
     if (d.dismiss !== undefined) return hideNotice();
+    if (t.id === 'profileBtn') return openProfiles();
     if (t.id === 'favViewBtn') return selectFav();
     if (t.id === 'starFilter') {
       state.listMode = state.listMode === 'fav' ? 'all' : 'fav';
@@ -1643,22 +1608,20 @@ ${aboutHTML()}`;
   main.addEventListener('input', e => {
     if (e.target.id === 'cardFilter') { state.cardQuery = e.target.value; refreshCards(); }
     if (e.target.id === 'binderRange') jumpSpread(+e.target.value - 1);
-    if (e.target.id === 'tokenInput') tokenDraft = e.target.value;
   });
   document.addEventListener('submit', e => {
-    if (!e.target.matches('[data-token-form]')) return;
-    e.preventDefault();
-    const token = (tokenDraft || '').trim();
-    if (!/^(github_pat_|ghp_)[A-Za-z0-9_]{20,}$/.test(token)) return toast('That doesn’t look like a GitHub token. It starts with github_pat_ or ghp_.');
-    sync.token = token;
-    sync.badToken = false;
-    tokenDraft = '';
-    try { localStorage.setItem(TOKEN_KEY, token); } catch (err) { /* kept for this visit only */ }
-    Promise.resolve(sync.running).then(() => syncNow()).then(() => {
-      if (sync.status === 'ok') toast('GitHub sync is on. Your favorites now show up in every browser.', 6000);
-      else if (sync.error === 'token') { forgetToken(); sync.badToken = true; sync.status = 'readonly'; renderSafe(); toast('GitHub didn’t accept that token. Check its repository access and Contents permission.', 6000); }
-    });
+    if (e.target.matches('[data-pf-new]')) {
+      e.preventDefault();
+      const input = $('#pfName');
+      if (!input.value.trim()) return input.focus();
+      createProfile(input.value);
+      input.value = '';
+    } else if (e.target.matches('[data-pf-rename]')) {
+      e.preventDefault();
+      renameProfile($('#pfRename').value);
+    }
   });
+  pf.addEventListener('click', e => { if (e.target.classList.contains('pf-backdrop')) closeProfiles(); });
   main.addEventListener('change', e => {
     if (e.target.id === 'sortSel') { state.sort = e.target.value; save(false); refreshCards(); }
     if (e.target.id === 'binderSort') { state.binderSort = e.target.value; state.spread = 0; save(false); renderFav(); }
@@ -1681,6 +1644,10 @@ ${aboutHTML()}`;
   });
 
   document.addEventListener('keydown', e => {
+    if (!pf.hidden) {
+      if (e.key === 'Escape') { e.preventDefault(); closeProfiles(); }
+      return;
+    }
     if (!lb.hidden) {
       if (e.key === 'Escape') { e.preventDefault(); return closeLightbox(); }
       if (e.key === 'ArrowLeft') { e.preventDefault(); return stepLightbox(-1); }
@@ -1739,19 +1706,25 @@ ${aboutHTML()}`;
     document.documentElement.style.setProperty('--top-h', topbar.offsetHeight + 'px');
     document.documentElement.style.setProperty('--tools-h', $('#railTools').offsetHeight + 'px');
   }
-  let resizeFrame = 0;
-  window.addEventListener('resize', () => {
+  let resizeFrame = 0, lastMainW = 0;
+  function refit() {
+    setTopH();
+    if ($('#binderWrap') && !binder.animating) {
+      const was = binder.two;
+      sizeBinder();
+      if (was !== binder.two) state.spread = 0;
+      drawSpread();
+    }
+  }
+  window.addEventListener('resize', () => { cancelAnimationFrame(resizeFrame); resizeFrame = requestAnimationFrame(refit); });
+  // the content area can change width without a window resize event (rotating a phone, zooming), so watch it too
+  if (window.ResizeObserver) new ResizeObserver(entries => {
+    const w = Math.round(entries[0].contentRect.width);
+    if (w === lastMainW) return;
+    lastMainW = w;
     cancelAnimationFrame(resizeFrame);
-    resizeFrame = requestAnimationFrame(() => {
-      setTopH();
-      if ($('#binderWrap') && !binder.animating) {
-        const was = binder.two;
-        sizeBinder();
-        if (was !== binder.two) state.spread = 0;
-        drawSpread();
-      }
-    });
-  });
+    resizeFrame = requestAnimationFrame(refit);
+  }).observe(main);
 
   /* ---------- boot ---------- */
   const STATS = {
@@ -1769,20 +1742,9 @@ ${aboutHTML()}`;
     if (n >= 1 && n <= MAX_DEX) return selectMon(n);
     return null;
   }
-  let bootToast = '';
-  if (location.hash.startsWith('#import=')) {
-    try {
-      const added = mergePayload(readTransfer(location.hash.slice(8)));
-      save(true);
-      bootToast = added.total ? `Added ${addedText(added)} from your other copy` : 'All of those favorites were already here';
-    } catch (e) { bootToast = 'That link didn’t contain favorites. Open Favorites in your other copy and try again.'; }
-    try { history.replaceState(null, '', '#favorites'); } catch (e) { /* ignore */ }
-  } else if (location.hash === '#send-to-site' && !onSite) {
-    if (state.favC.size || state.favP.size) { location.replace(transferUrl()); return; }
-    try { history.replaceState(null, '', '#favorites'); } catch (e) { /* ignore */ }
-    bootToast = 'No favorites are saved in this browser for this copy yet.';
-  }
   setTopH();
+  loadActive();
+  renderProfileBtn();
   renderRail();
   updateFavCount();
   if (!(location.hash && route() !== null)) {
@@ -1792,17 +1754,13 @@ ${aboutHTML()}`;
     markCurrent();
   }
   if (!storageOK) showNotice('nostorage');
-  else {
-    let embedded = false;
-    try { embedded = window.self !== window.top; } catch (e) { embedded = true; }
-    if (embedded) showNotice('embedded');
-  }
-  if (bootToast) toast(bootToast, 9000);
-  initBackup();
-  syncNow();
+  let pickerSeen = false;
+  try { pickerSeen = !!sessionStorage.getItem(KEY + ':picker-seen'); } catch (e) { /* treat as first visit */ }
+  pullProfiles().then(() => { if (!activeProfile() && !pickerSeen && pf.hidden && lb.hidden) openProfiles(); });
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && Date.now() - sync.lastPull > 60000) syncNow();
+    if (document.visibilityState === 'visible' && Date.now() - cloud.lastPull > 30000) pullProfiles();
   });
+  window.addEventListener('online', () => flushQueue());
 })();
 </script>
 </body>
