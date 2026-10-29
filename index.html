@@ -287,6 +287,7 @@ input::placeholder { color: var(--muted); }
 /* ---------- favorites ---------- */
 .fav-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; }
 .fav-head .mon-name { margin: 6px 0 6px; }
+.fav-side { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
 .save-line { display: inline-flex; align-items: center; gap: 8px; margin: 0; font-size: 13.5px; color: var(--muted); }
 .save-line i { width: 9px; height: 9px; border-radius: 50%; background: var(--ok); flex: none; }
 .save-line.warn i { background: var(--heart); }
@@ -442,6 +443,7 @@ input::placeholder { color: var(--muted); }
   .mon-head { grid-template-columns: auto minmax(0, 1fr); }
   .mon-art { width: 112px; }
   .mon-head .star-btn { grid-column: 1 / -1; justify-self: start; }
+  .fav-side { align-items: flex-start; }
   .lb-panel { grid-template-columns: minmax(0, 1fr); width: 100%; padding: 64px 18px 18px; gap: 18px; }
   .lb-figure img, .lb-figure .lb-noimg { height: auto; width: min(100%, 340px); margin-inline: auto; }
 }
@@ -535,6 +537,8 @@ input::placeholder { color: var(--muted); }
   const KEY = 'kanto-art-card-index:v1'; // kept from the first version so saved favorites carry over
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const narrow = matchMedia('(max-width: 859px)');
+  const SITE_URL = 'https://callmescine.github.io/poke-tcg-binder/';
+  const onSite = location.origin === 'https://callmescine.github.io' && location.pathname.startsWith('/poke-tcg-binder');
 
   const REGIONS = [
     { k: 'kanto', name: 'Kanto', lo: 1, hi: 151 },
@@ -683,6 +687,23 @@ input::placeholder { color: var(--muted); }
     p.forEach(n => { if (!state.favP.has(n)) { state.favP.add(n); added++; } });
     incoming.forEach((ts, id) => { if (!state.favC.has(id)) { state.favC.set(id, ts); added++; } });
     return added;
+  }
+  // Favorites travel inside the link's #fragment, which browsers never send to the web server.
+  function transferUrl() {
+    const bytes = new TextEncoder().encode(JSON.stringify({ p: Array.from(state.favP), c: Array.from(state.favC.entries()) }));
+    let bin = '';
+    bytes.forEach(b => { bin += String.fromCharCode(b); });
+    return SITE_URL + '#import=' + btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  function readTransfer(code) {
+    const bin = atob(code.replace(/-/g, '+').replace(/_/g, '/'));
+    const j = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, ch => ch.charCodeAt(0))));
+    return { pokemon: j.p, cards: j.c };
+  }
+  function copyLink() {
+    const done = () => toast('Link copied. Open it on your phone or in another browser to add these favorites there.');
+    const fail = () => toast('This browser blocked copying. Use Download backup instead.');
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(transferUrl()).then(done, fail); else fail();
   }
   async function initBackup() {
     if (!fsaSupported) return;
@@ -976,7 +997,10 @@ ${aboutHTML()}`;
     <h2 class="mon-name">Favorites</h2>
     <p class="summary"><b>${plural(all.length, 'card')}</b> · ${plural(mons.length, 'starred Pokémon', 'starred Pokémon')}</p>
   </div>
-  <p class="save-line" id="saveLine"></p>
+  <div class="fav-side">
+    <p class="save-line" id="saveLine"></p>
+    ${!onSite && all.length + mons.length ? `<a class="btn" href="${transferUrl()}" target="_blank" rel="noopener">Add these to the website ↗</a>` : ''}
+  </div>
 </section>
 <div class="toolbar fav-toolbar">
   <div class="seg" role="group" aria-label="Layout">
@@ -1153,8 +1177,11 @@ ${aboutHTML()}`;
     } else {
       items.push(`<li class="idle"><i></i><div><p>Backup file: download one now and then.</p><p class="sub">This browser can’t update a file by itself (Chrome and Edge can). A downloaded backup brings everything back with Load a backup.</p></div></li>`);
     }
+    if (!onSite) {
+      items.push(`<li class="idle"><i></i><div><p>The website keeps its own list.</p><p class="sub">This copy is a file on your computer, and callmescine.github.io saves favorites separately. <a class="link-btn" href="${transferUrl()}" target="_blank" rel="noopener">Add these favorites to the website</a></p></div></li>`);
+    }
     box.innerHTML = `<h3>Keeping your favorites safe</h3><ul class="safe-list">${items.join('')}</ul>
-<div class="safe-actions"><button class="btn" type="button" data-export>Download backup</button><button class="btn" type="button" data-import>Load a backup</button></div>`;
+<div class="safe-actions"><button class="btn" type="button" data-export>Download backup</button><button class="btn" type="button" data-import>Load a backup</button><button class="btn" type="button" data-copylink>Copy link for another device</button></div>`;
   }
 
   function aboutHTML() {
@@ -1389,6 +1416,7 @@ ${aboutHTML()}`;
     }
     if (d.back !== undefined) { document.body.classList.remove('detail-open'); setTopH(); markCurrent(); window.scrollTo(0, 0); syncRegionTabs(); return; }
     if (d.export !== undefined) return exportFavs();
+    if (d.copylink !== undefined) return copyLink();
     if (d.import !== undefined) return $('#importFile').click();
     if (d.backup === 'connect') return connectBackup();
     if (d.backup === 'reconnect') return reconnectBackup();
@@ -1527,6 +1555,19 @@ ${aboutHTML()}`;
     if (n >= 1 && n <= MAX_DEX) return selectMon(n);
     return null;
   }
+  let bootToast = '';
+  if (location.hash.startsWith('#import=')) {
+    try {
+      const added = mergePayload(readTransfer(location.hash.slice(8)));
+      save(true);
+      bootToast = added ? `Added ${plural(added, 'favorite')} from your other copy` : 'All of those favorites were already here';
+    } catch (e) { bootToast = 'That link didn’t contain favorites. Open Favorites in your other copy and try again.'; }
+    try { history.replaceState(null, '', '#favorites'); } catch (e) { /* ignore */ }
+  } else if (location.hash === '#send-to-site' && !onSite) {
+    if (state.favC.size || state.favP.size) { location.replace(transferUrl()); return; }
+    try { history.replaceState(null, '', '#favorites'); } catch (e) { /* ignore */ }
+    bootToast = 'No favorites are saved in this browser for this copy yet.';
+  }
   setTopH();
   renderRail();
   updateFavCount();
@@ -1542,6 +1583,7 @@ ${aboutHTML()}`;
     try { embedded = window.self !== window.top; } catch (e) { embedded = true; }
     if (embedded) showNotice('embedded');
   }
+  if (bootToast) toast(bootToast);
   initBackup();
 })();
 </script>
