@@ -683,10 +683,13 @@ input::placeholder { color: var(--muted); }
     const p = (Array.isArray(j.pokemon) ? j.pokemon : []).filter(n => Number.isInteger(n) && n >= 1 && n <= MAX_DEX);
     const incoming = toFavMap(j.cards);
     if (!p.length && !incoming.size && !Array.isArray(j.cards)) throw new Error('not a backup');
-    let added = 0;
-    p.forEach(n => { if (!state.favP.has(n)) { state.favP.add(n); added++; } });
-    incoming.forEach((ts, id) => { if (!state.favC.has(id)) { state.favC.set(id, ts); added++; } });
-    return added;
+    let cardsAdded = 0, monsAdded = 0;
+    p.forEach(n => { if (!state.favP.has(n)) { state.favP.add(n); monsAdded++; } });
+    incoming.forEach((ts, id) => { if (!state.favC.has(id)) { state.favC.set(id, ts); cardsAdded++; } });
+    return { cards: cardsAdded, pokemon: monsAdded, total: cardsAdded + monsAdded };
+  }
+  function addedText(a) {
+    return [a.cards ? plural(a.cards, 'card') : '', a.pokemon ? plural(a.pokemon, 'starred Pokémon', 'starred Pokémon') : ''].filter(Boolean).join(' and ');
   }
   // Favorites travel inside the link's #fragment, which browsers never send to the web server.
   function transferUrl() {
@@ -724,7 +727,7 @@ input::placeholder { color: var(--muted); }
       const text = await (await backup.handle.getFile()).text();
       if (!text.trim()) return writeBackup();
       const added = mergePayload(JSON.parse(text));
-      if (added) { save(true); refreshAll(); toast(`Restored ${plural(added, 'favorite')} from ${backup.name}`); }
+      if (added.total) { save(true); refreshAll(); toast(`Restored ${addedText(added)} from ${backup.name}`); }
       else writeBackup();
     } catch (e) { writeBackup(); }
   }
@@ -1334,12 +1337,12 @@ ${aboutHTML()}`;
   }
 
   let toastTimer = 0;
-  function toast(msg) {
+  function toast(msg, ms) {
     const t = $('#toast');
     t.textContent = msg;
     t.hidden = false;
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { t.hidden = true; }, 3600);
+    toastTimer = setTimeout(() => { t.hidden = true; }, ms || 3600);
   }
   function showNotice(kind) {
     const n = $('#notice');
@@ -1377,7 +1380,7 @@ ${aboutHTML()}`;
       const added = mergePayload(JSON.parse(await f.text()));
       save(true);
       refreshAll();
-      toast(added ? `Added ${plural(added, 'favorite')} from the backup` : 'Everything in that backup is already here');
+      toast(added.total ? `Added ${addedText(added)} from the backup` : 'Everything in that backup is already here');
     } catch (err) {
       toast('That file isn’t a favorites backup. Choose the .json file this page saved.');
     }
@@ -1560,7 +1563,7 @@ ${aboutHTML()}`;
     try {
       const added = mergePayload(readTransfer(location.hash.slice(8)));
       save(true);
-      bootToast = added ? `Added ${plural(added, 'favorite')} from your other copy` : 'All of those favorites were already here';
+      bootToast = added.total ? `Added ${addedText(added)} from your other copy` : 'All of those favorites were already here';
     } catch (e) { bootToast = 'That link didn’t contain favorites. Open Favorites in your other copy and try again.'; }
     try { history.replaceState(null, '', '#favorites'); } catch (e) { /* ignore */ }
   } else if (location.hash === '#send-to-site' && !onSite) {
@@ -1583,7 +1586,7 @@ ${aboutHTML()}`;
     try { embedded = window.self !== window.top; } catch (e) { embedded = true; }
     if (embedded) showNotice('embedded');
   }
-  if (bootToast) toast(bootToast);
+  if (bootToast) toast(bootToast, 9000);
   initBackup();
 })();
 </script>
