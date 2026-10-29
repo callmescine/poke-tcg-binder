@@ -309,6 +309,12 @@ input::placeholder { color: var(--muted); }
 .safe-list p { margin: 0; }
 .safe-list .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
 .safe-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.save-line.idle i { background: var(--gold); }
+.token-steps { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
+.token-steps a { color: var(--accent); font-weight: 600; }
+.token-steps b { color: var(--ink); font-weight: 600; }
+.token-form { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.token-form input { flex: 1 1 240px; min-width: 0; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--sheet-2); color: var(--ink); font: 500 13.5px var(--font-mono); }
 
 /* ---------- binder ---------- */
 .binder-wrap { --cw: 120px; --g: 8px; --pp: 14px; --cover: 14px; --spine: 42px; margin-top: 24px; user-select: none; -webkit-user-select: none; }
@@ -618,9 +624,31 @@ input::placeholder { color: var(--muted); }
     });
     return m;
   }
+  function toDexMap(list) {
+    const m = new Map();
+    if (!Array.isArray(list)) return m;
+    list.forEach(x => {
+      if (Number.isInteger(x)) m.set(x, 1); // earlier versions stored plain numbers
+      else if (Array.isArray(x) && Number.isInteger(x[0])) m.set(x[0], +x[1] || 1);
+    });
+    return m;
+  }
+  function toTombMap(list, dex) {
+    const m = new Map();
+    if (!Array.isArray(list)) return m;
+    list.forEach(x => { if (Array.isArray(x) && (dex ? Number.isInteger(x[0]) : typeof x[0] === 'string') && +x[1] > 0) m.set(x[0], +x[1]); });
+    return m;
+  }
+  function setFav(map, tomb, key, on) {
+    const now = Date.now();
+    if (on) { map.set(key, Math.max(now, (tomb.get(key) || 0) + 1)); tomb.delete(key); }
+    else { tomb.set(key, Math.max(now, (map.get(key) || 0) + 1)); map.delete(key); }
+  }
   const state = {
-    favP: new Set(Array.isArray(saved.favP) ? saved.favP.filter(n => Number.isInteger(n)) : []),
+    favP: toDexMap(saved.favP),
     favC: toFavMap(saved.favC),
+    tombP: toTombMap(saved.tombP, true),
+    tombC: toTombMap(saved.tombC, false),
     cats: new Set(Array.isArray(saved.cats) ? saved.cats.filter(k => CAT[k]) : DEFAULT_CATS),
     sort: saved.sort === 'old' ? 'old' : 'new',
     group: saved.group === 'era' ? 'era' : 'rarity',
@@ -638,12 +666,13 @@ input::placeholder { color: var(--muted); }
     if (changed) state.updated = Date.now();
     try {
       localStorage.setItem(KEY, JSON.stringify({
-        v: 2, favP: Array.from(state.favP), favC: Array.from(state.favC.entries()), cats: Array.from(state.cats),
+        v: 3, favP: Array.from(state.favP.entries()), favC: Array.from(state.favC.entries()),
+        tombP: Array.from(state.tombP.entries()), tombC: Array.from(state.tombC.entries()), cats: Array.from(state.cats),
         sort: state.sort, group: state.group, theme: state.theme, last: state.view, favView: state.favView,
         binderSort: state.binderSort, binderRegion: state.binderRegion, spread: state.spread, updated: state.updated
       }));
     } catch (e) { storageOK = false; }
-    if (changed) { scheduleBackup(); askPersist(); }
+    if (changed) { scheduleBackup(); scheduleSync(); askPersist(); }
   }
   let persistAsked = false;
   function askPersist() {
@@ -674,7 +703,7 @@ input::placeholder { color: var(--muted); }
   function payload() {
     return {
       app: 'Pokédex Art Card Index', version: 2, exported: new Date().toISOString(),
-      pokemon: Array.from(state.favP).sort((a, b) => a - b),
+      pokemon: Array.from(state.favP.keys()).sort((a, b) => a - b),
       cards: Array.from(state.favC.entries()).map(([id, ts]) => ({ id, name: byId.has(id) ? byId.get(id).n : undefined, added: new Date(ts).toISOString() }))
     };
   }
@@ -684,8 +713,13 @@ input::placeholder { color: var(--muted); }
     const incoming = toFavMap(j.cards);
     if (!p.length && !incoming.size && !Array.isArray(j.cards)) throw new Error('not a backup');
     let cardsAdded = 0, monsAdded = 0;
-    p.forEach(n => { if (!state.favP.has(n)) { state.favP.add(n); monsAdded++; } });
-    incoming.forEach((ts, id) => { if (!state.favC.has(id)) { state.favC.set(id, ts); cardsAdded++; } });
+    p.forEach(n => { if (!state.favP.has(n)) { setFav(state.favP, state.tombP, n, true); monsAdded++; } });
+    incoming.forEach((ts, id) => {
+      if (state.favC.has(id)) return;
+      state.favC.set(id, Math.max(ts, (state.tombC.get(id) || 0) + 1)); // an import is a fresh add, even over an older removal
+      state.tombC.delete(id);
+      cardsAdded++;
+    });
     return { cards: cardsAdded, pokemon: monsAdded, total: cardsAdded + monsAdded };
   }
   function addedText(a) {
@@ -693,7 +727,7 @@ input::placeholder { color: var(--muted); }
   }
   // Favorites travel inside the link's #fragment, which browsers never send to the web server.
   function transferUrl() {
-    const bytes = new TextEncoder().encode(JSON.stringify({ p: Array.from(state.favP), c: Array.from(state.favC.entries()) }));
+    const bytes = new TextEncoder().encode(JSON.stringify({ p: Array.from(state.favP.keys()), c: Array.from(state.favC.entries()) }));
     let bin = '';
     bytes.forEach(b => { bin += String.fromCharCode(b); });
     return SITE_URL + '#import=' + btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -767,6 +801,154 @@ input::placeholder { color: var(--muted); }
       backup.at = Date.now();
     } catch (e) { backup.status = 'reconnect'; }
     renderSafe();
+  }
+
+
+  /* ---------- GitHub sync ----------
+     Favorites live in favorites.json on the favorites-data branch of the site's repo, so every browser
+     that opens the site sees them. Anyone can read that file; saving changes needs the owner's token,
+     which stays in this browser and is only sent to api.github.com. When two browsers change the
+     same card, the most recent change wins; removals are remembered so they sync too. */
+  const GH = { owner: 'callmescine', repo: 'poke-tcg-binder', branch: 'favorites-data', path: 'favorites.json' };
+  const GH_API = `https://api.github.com/repos/${GH.owner}/${GH.repo}`;
+  const TOKEN_KEY = KEY + ':github-token';
+  const TOKEN_URL = 'https://github.com/settings/personal-access-tokens/new?name=' + encodeURIComponent('Pokedex binder sync')
+    + '&target_name=' + GH.owner + '&contents=write';
+  const sync = { token: '', status: 'idle', at: 0, error: '', badToken: false, lastPull: 0, timer: 0, running: null, again: false, nudged: false, sha: null };
+  try { sync.token = localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { sync.token = ''; }
+  let tokenDraft = '';
+
+  function ghHeaders(json) {
+    const h = { Accept: 'application/vnd.github+json' };
+    if (sync.token) h.Authorization = 'Bearer ' + sync.token;
+    if (json) h['Content-Type'] = 'application/json';
+    return h;
+  }
+  function ghError(status, writing) {
+    if (status === 401 || (writing && (status === 403 || status === 404))) return new Error('token');
+    if (status === 403 || status === 429) return new Error('limit');
+    return new Error('network');
+  }
+  const b64encode = text => { let bin = ''; new TextEncoder().encode(text).forEach(b => { bin += String.fromCharCode(b); }); return btoa(bin); };
+  const b64decode = b64 => new TextDecoder().decode(Uint8Array.from(atob(b64.replace(/\s/g, '')), ch => ch.charCodeAt(0)));
+
+  function snapshot() {
+    return {
+      app: 'Pokédex Art Card Index', version: 3, updated: new Date().toISOString(),
+      pokemon: Array.from(state.favP.entries()), cards: Array.from(state.favC.entries()),
+      removedPokemon: Array.from(state.tombP.entries()), removedCards: Array.from(state.tombC.entries())
+    };
+  }
+  const remoteMaps = j => [toFavMap(j.cards), toTombMap(j.removedCards, false), toDexMap(j.pokemon), toTombMap(j.removedPokemon, true)];
+  const canon = (...maps) => JSON.stringify(maps.map(m => Array.from(m.entries()).map(e => e.join('|')).sort()));
+  function mergeInto(fav, tomb, rFav, rTomb) {
+    let changed = false;
+    new Set([...fav.keys(), ...tomb.keys(), ...rFav.keys(), ...rTomb.keys()]).forEach(k => {
+      const add = Math.max(fav.get(k) || 0, rFav.get(k) || 0);
+      const rem = Math.max(tomb.get(k) || 0, rTomb.get(k) || 0);
+      if (add > rem) {
+        if (!fav.has(k)) changed = true;
+        fav.set(k, add);
+        tomb.delete(k);
+      } else {
+        if (fav.has(k)) changed = true;
+        fav.delete(k);
+        tomb.set(k, rem);
+      }
+    });
+    return changed;
+  }
+
+  async function pullRemote() {
+    const res = await fetch(`${GH_API}/contents/${GH.path}?ref=${GH.branch}`, { cache: 'no-store', headers: ghHeaders(false) });
+    if (res.status === 404) { sync.sha = null; return null; }
+    if (!res.ok) throw ghError(res.status, false);
+    const f = await res.json();
+    sync.sha = f.sha;
+    const text = f.content ? b64decode(f.content) : '';
+    return text.trim() ? JSON.parse(text) : null;
+  }
+  async function ensureBranch() {
+    const head = await fetch(`${GH_API}/git/ref/heads/${GH.branch}`, { cache: 'no-store', headers: ghHeaders(false) });
+    if (head.ok) return;
+    if (head.status !== 404) throw ghError(head.status, true);
+    const main = await fetch(`${GH_API}/git/ref/heads/main`, { cache: 'no-store', headers: ghHeaders(false) });
+    if (!main.ok) throw ghError(main.status, true);
+    const made = await fetch(`${GH_API}/git/refs`, {
+      method: 'POST', headers: ghHeaders(true),
+      body: JSON.stringify({ ref: `refs/heads/${GH.branch}`, sha: (await main.json()).object.sha })
+    });
+    if (!made.ok && made.status !== 422) throw ghError(made.status, true); // 422: it was just created elsewhere
+  }
+  async function pushRemote() {
+    if (!sync.sha) await ensureBranch();
+    const body = { message: 'Update favorites', branch: GH.branch, content: b64encode(JSON.stringify(snapshot(), null, 1)) };
+    if (sync.sha) body.sha = sync.sha;
+    const res = await fetch(`${GH_API}/contents/${GH.path}`, { method: 'PUT', headers: ghHeaders(true), body: JSON.stringify(body) });
+    if (res.status === 409 || res.status === 422) return false; // changed elsewhere since we read it; pull and try again
+    if (!res.ok) throw ghError(res.status, true);
+    sync.sha = (await res.json()).content.sha;
+    return true;
+  }
+  function syncNow() {
+    if (sync.running) { sync.again = true; return sync.running; }
+    sync.running = (async () => {
+      sync.status = 'syncing';
+      renderSafe();
+      try {
+        for (let attempt = 0; attempt < 3 && sync.status === 'syncing'; attempt++) {
+          const remote = await pullRemote();
+          sync.lastPull = Date.now();
+          const r = remote ? remoteMaps(remote) : [new Map(), new Map(), new Map(), new Map()];
+          const cardsChanged = mergeInto(state.favC, state.tombC, r[0], r[1]);
+          const monsChanged = mergeInto(state.favP, state.tombP, r[2], r[3]);
+          save(false);
+          if (cardsChanged || monsChanged) refreshAll();
+          if (!sync.token) sync.status = 'readonly';
+          else if (remote && canon(state.favC, state.tombC, state.favP, state.tombP) === canon(r[0], r[1], r[2], r[3])) sync.status = 'ok';
+          else if (await pushRemote()) sync.status = 'ok';
+        }
+        if (sync.status === 'syncing') throw new Error('network');
+        sync.at = Date.now();
+        sync.error = '';
+      } catch (e) {
+        sync.status = 'error';
+        sync.error = e && (e.message === 'token' || e.message === 'limit') ? e.message : 'network';
+      }
+      sync.running = null;
+      renderSafe();
+      if (sync.again) { sync.again = false; syncNow(); }
+    })();
+    return sync.running;
+  }
+  function scheduleSync() {
+    if (!sync.token) return;
+    clearTimeout(sync.timer);
+    sync.timer = setTimeout(syncNow, 1200);
+  }
+  function forgetToken() {
+    sync.token = '';
+    try { localStorage.removeItem(TOKEN_KEY); } catch (e) { /* nothing stored */ }
+  }
+  function nudgeSync() {
+    if (sync.token || sync.nudged || !storageOK) return;
+    sync.nudged = true;
+    toast('Saved in this browser. To sync it everywhere, add your GitHub token in Favorites.', 5000);
+  }
+  function syncItemHTML() {
+    const form = `<form class="token-form" data-token-form autocomplete="off"><input type="password" id="tokenInput" placeholder="Paste your GitHub token" aria-label="GitHub token" spellcheck="false" autocomplete="off"><button class="btn" type="submit">Save token</button></form>`;
+    const how = `<ol class="token-steps"><li><a href="${TOKEN_URL}" target="_blank" rel="noopener">Open GitHub’s new-token page</a>. Under <b>Repository access</b>, choose <b>Only select repositories</b> and pick <b>${GH.repo}</b>. Under <b>Permissions</b>, set <b>Contents</b> to <b>Read and write</b>. Choose an expiration, then click <b>Generate token</b>.</li><li>Copy the token and paste it below. It stays in this browser and is only sent to GitHub.</li></ol>`;
+    const retry = '<button class="link-btn" type="button" data-sync="now">Try again</button>';
+    if (!sync.token) {
+      if (sync.status === 'error' && sync.error === 'limit') return `<li class="warn"><i></i><div><p>GitHub is limiting requests from your network.</p><p class="sub">Your favorites are safe in this browser. ${retry} in a few minutes.</p></div></li>`;
+      if (sync.status === 'error' && sync.error === 'network') return `<li class="warn"><i></i><div><p>Couldn’t reach GitHub.</p><p class="sub">Your favorites are safe in this browser. ${retry}</p>${form}</div></li>`;
+      if (sync.badToken) return `<li class="warn"><i></i><div><p>GitHub didn’t accept that token.</p><p class="sub">It needs access to ${GH.repo} with Contents set to Read and write. Make a new one:</p>${how}${form}</div></li>`;
+      return `<li class="idle"><i></i><div><p>${sync.status === 'readonly' ? 'Showing your favorites from GitHub.' : 'Checking GitHub…'}</p><p class="sub">Every browser that opens the site sees them. To save changes you make here, add your GitHub token once in this browser:</p>${how}${form}</div></li>`;
+    }
+    if (sync.status === 'ok') return `<li><i></i><div><p>Synced with GitHub.</p><p class="sub">Changes here show up in every browser that opens the site${sync.at ? `. Last synced ${fmtTime(sync.at)}` : ''}. <button class="link-btn" type="button" data-sync="now">Sync now</button> · <button class="link-btn" type="button" data-sync="forget">Remove token from this browser</button></p></div></li>`;
+    if (sync.status === 'error' && sync.error === 'limit') return `<li class="warn"><i></i><div><p>GitHub is limiting requests from your network.</p><p class="sub">Changes are saved in this browser and sync later. ${retry}</p></div></li>`;
+    if (sync.status === 'error') return `<li class="warn"><i></i><div><p>Couldn’t sync with GitHub.</p><p class="sub">Changes are saved in this browser and sync next time. ${retry} · <button class="link-btn" type="button" data-sync="forget">Remove token from this browser</button></p></div></li>`;
+    return `<li class="idle"><i></i><div><p>Syncing with GitHub…</p></div></li>`;
   }
 
   const main = $('#main');
@@ -992,7 +1174,7 @@ ${aboutHTML()}`;
 
   function renderFav() {
     const all = favCards();
-    const mons = Array.from(state.favP).filter(id => MON[id - 1]).sort((a, b) => a - b);
+    const mons = Array.from(state.favP.keys()).filter(id => MON[id - 1]).sort((a, b) => a - b);
     main.innerHTML = `<button class="btn back-btn" type="button" data-back>← All Pokémon</button>
 <section class="fav-head">
   <div>
@@ -1160,14 +1342,17 @@ ${aboutHTML()}`;
   function renderSafe() {
     const line = $('#saveLine');
     if (line) {
-      line.className = 'save-line' + (storageOK ? '' : ' warn');
-      line.innerHTML = storageOK
-        ? `<i></i>Saved in this browser${state.updated ? ` · last change ${fmtTime(state.updated)}` : ''}`
-        : '<i></i>Not saving in this window';
+      const syncText = {
+        ok: `Synced with GitHub${sync.at ? ` · ${fmtTime(sync.at)}` : ''}`, syncing: 'Syncing with GitHub…',
+        readonly: 'From GitHub · add your token below to save changes there', error: 'Not synced with GitHub · see below'
+      }[sync.status];
+      line.className = 'save-line' + (!storageOK || sync.status === 'error' ? ' warn' : sync.status === 'readonly' ? ' idle' : '');
+      line.innerHTML = !storageOK ? '<i></i>Not saving in this window'
+        : syncText ? `<i></i>${syncText}` : `<i></i>Saved in this browser${state.updated ? ` · last change ${fmtTime(state.updated)}` : ''}`;
     }
     const box = $('#safekeep');
     if (!box) return;
-    const items = [];
+    const items = [syncItemHTML()];
     items.push(storageOK
       ? `<li><i></i><div><p>Saved automatically in this browser.</p><p class="sub">Favorites stay after you quit or restart Safari or Chrome, and after you move this file to another folder. Clearing the browser’s website data erases them, so keep a backup file too.</p></div></li>`
       : `<li class="warn"><i></i><div><p>This window can’t save favorites.</p><p class="sub">Open the HTML file directly in Safari or Chrome (not a private window, not inside another app) so favorites are kept after restarts.</p></div></li>`);
@@ -1180,11 +1365,14 @@ ${aboutHTML()}`;
     } else {
       items.push(`<li class="idle"><i></i><div><p>Backup file: download one now and then.</p><p class="sub">This browser can’t update a file by itself (Chrome and Edge can). A downloaded backup brings everything back with Load a backup.</p></div></li>`);
     }
-    if (!onSite) {
-      items.push(`<li class="idle"><i></i><div><p>The website keeps its own list.</p><p class="sub">This copy is a file on your computer, and callmescine.github.io saves favorites separately. <a class="link-btn" href="${transferUrl()}" target="_blank" rel="noopener">Add these favorites to the website</a></p></div></li>`);
+    if (!onSite && !sync.token) {
+      items.push(`<li class="idle"><i></i><div><p>Not syncing from this copy yet.</p><p class="sub">This copy is a file on your computer. Add your token above to sync it, or copy its favorites to the website once: <a class="link-btn" href="${transferUrl()}" target="_blank" rel="noopener">Add these favorites to the website</a></p></div></li>`);
     }
+    const hadFocus = document.activeElement && document.activeElement.id === 'tokenInput';
     box.innerHTML = `<h3>Keeping your favorites safe</h3><ul class="safe-list">${items.join('')}</ul>
 <div class="safe-actions"><button class="btn" type="button" data-export>Download backup</button><button class="btn" type="button" data-import>Load a backup</button><button class="btn" type="button" data-copylink>Copy link for another device</button></div>`;
+    const ti = $('#tokenInput');
+    if (ti) { ti.value = tokenDraft; if (hadFocus) ti.focus(); }
   }
 
   function aboutHTML() {
@@ -1299,7 +1487,7 @@ ${aboutHTML()}`;
   }
   function toggleFav(id) {
     const on = !state.favC.has(id);
-    if (on) state.favC.set(id, Date.now()); else state.favC.delete(id);
+    setFav(state.favC, state.tombC, id, on);
     save(true);
     $$('.heart').filter(b => b.dataset.fav === id).forEach(b => {
       b.setAttribute('aria-pressed', String(on));
@@ -1315,11 +1503,13 @@ ${aboutHTML()}`;
       else binder.dirty = true;
     }
     if (!storageOK) toast('Favorited for now, but this window can’t save. Open the file in Safari or Chrome.');
+    else nudgeSync();
   }
   function toggleStar(id) {
     const on = !state.favP.has(id);
-    if (on) state.favP.add(id); else state.favP.delete(id);
+    setFav(state.favP, state.tombP, id, on);
     save(true);
+    nudgeSync();
     renderRail();
     markCurrent();
     $$('.star-btn').filter(b => +b.dataset.star === id).forEach(b => {
@@ -1420,6 +1610,8 @@ ${aboutHTML()}`;
     if (d.back !== undefined) { document.body.classList.remove('detail-open'); setTopH(); markCurrent(); window.scrollTo(0, 0); syncRegionTabs(); return; }
     if (d.export !== undefined) return exportFavs();
     if (d.copylink !== undefined) return copyLink();
+    if (d.sync === 'now') return syncNow();
+    if (d.sync === 'forget') { forgetToken(); sync.status = 'readonly'; renderSafe(); return toast('Token removed from this browser.'); }
     if (d.import !== undefined) return $('#importFile').click();
     if (d.backup === 'connect') return connectBackup();
     if (d.backup === 'reconnect') return reconnectBackup();
@@ -1447,6 +1639,21 @@ ${aboutHTML()}`;
   main.addEventListener('input', e => {
     if (e.target.id === 'cardFilter') { state.cardQuery = e.target.value; refreshCards(); }
     if (e.target.id === 'binderRange') jumpSpread(+e.target.value - 1);
+    if (e.target.id === 'tokenInput') tokenDraft = e.target.value;
+  });
+  document.addEventListener('submit', e => {
+    if (!e.target.matches('[data-token-form]')) return;
+    e.preventDefault();
+    const token = (tokenDraft || '').trim();
+    if (!/^(github_pat_|ghp_)[A-Za-z0-9_]{20,}$/.test(token)) return toast('That doesn’t look like a GitHub token. It starts with github_pat_ or ghp_.');
+    sync.token = token;
+    sync.badToken = false;
+    tokenDraft = '';
+    try { localStorage.setItem(TOKEN_KEY, token); } catch (err) { /* kept for this visit only */ }
+    Promise.resolve(sync.running).then(() => syncNow()).then(() => {
+      if (sync.status === 'ok') toast('GitHub sync is on. Your favorites now show up in every browser.', 6000);
+      else if (sync.error === 'token') { forgetToken(); sync.badToken = true; sync.status = 'readonly'; renderSafe(); toast('GitHub didn’t accept that token. Check its repository access and Contents permission.', 6000); }
+    });
   });
   main.addEventListener('change', e => {
     if (e.target.id === 'sortSel') { state.sort = e.target.value; save(false); refreshCards(); }
@@ -1588,6 +1795,10 @@ ${aboutHTML()}`;
   }
   if (bootToast) toast(bootToast, 9000);
   initBackup();
+  syncNow();
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && Date.now() - sync.lastPull > 60000) syncNow();
+  });
 })();
 </script>
 </body>
