@@ -899,6 +899,7 @@ input::placeholder { color: var(--muted); }
         for (let attempt = 0; attempt < 3 && sync.status === 'syncing'; attempt++) {
           const remote = await pullRemote();
           sync.lastPull = Date.now();
+          sync.remoteExists = !!remote;
           const r = remote ? remoteMaps(remote) : [new Map(), new Map(), new Map(), new Map()];
           const cardsChanged = mergeInto(state.favC, state.tombC, r[0], r[1]);
           const monsChanged = mergeInto(state.favP, state.tombP, r[2], r[3]);
@@ -943,6 +944,7 @@ input::placeholder { color: var(--muted); }
       if (sync.status === 'error' && sync.error === 'limit') return `<li class="warn"><i></i><div><p>GitHub is limiting requests from your network.</p><p class="sub">Your favorites are safe in this browser. ${retry} in a few minutes.</p></div></li>`;
       if (sync.status === 'error' && sync.error === 'network') return `<li class="warn"><i></i><div><p>Couldn’t reach GitHub.</p><p class="sub">Your favorites are safe in this browser. ${retry}</p>${form}</div></li>`;
       if (sync.badToken) return `<li class="warn"><i></i><div><p>GitHub didn’t accept that token.</p><p class="sub">It needs access to ${GH.repo} with Contents set to Read and write. Make a new one:</p>${how}${form}</div></li>`;
+      if (sync.status === 'readonly' && !sync.remoteExists) return `<li class="idle"><i></i><div><p>GitHub sync isn’t set up yet.</p><p class="sub">Favorites you add are saved in this browser only, so a private window, another browser or your phone won’t see them. To share them with every browser, save your GitHub token once here, in the browser that has your favorites:</p>${how}${form}</div></li>`;
       return `<li class="idle"><i></i><div><p>${sync.status === 'readonly' ? 'Showing your favorites from GitHub.' : 'Checking GitHub…'}</p><p class="sub">Every browser that opens the site sees them. To save changes you make here, add your GitHub token once in this browser:</p>${how}${form}</div></li>`;
     }
     if (sync.status === 'ok') return `<li><i></i><div><p>Synced with GitHub.</p><p class="sub">Changes here show up in every browser that opens the site${sync.at ? `. Last synced ${fmtTime(sync.at)}` : ''}. <button class="link-btn" type="button" data-sync="now">Sync now</button> · <button class="link-btn" type="button" data-sync="forget">Remove token from this browser</button></p></div></li>`;
@@ -1345,7 +1347,8 @@ ${aboutHTML()}`;
     if (line) {
       const syncText = {
         ok: `Synced with GitHub${sync.at ? ` · ${fmtTime(sync.at)}` : ''}`, syncing: 'Syncing with GitHub…',
-        readonly: 'From GitHub · add your token below to save changes there', error: 'Not synced with GitHub · see below'
+        readonly: sync.remoteExists ? 'From GitHub · add your token below to save changes there' : `Saved in this browser only${state.updated ? ` · last change ${fmtTime(state.updated)}` : ''}`,
+        error: 'Not synced with GitHub · see below'
       }[sync.status];
       line.className = 'save-line' + (!storageOK || sync.status === 'error' ? ' warn' : sync.status === 'readonly' ? ' idle' : '');
       line.innerHTML = !storageOK ? '<i></i>Not saving in this window'
