@@ -867,7 +867,7 @@ input::placeholder { color: var(--muted); }
     cancelAnimationFrame(tabFrame);
     tabFrame = requestAnimationFrame(() => {
       const heads = $$('.region-head', list);
-      if (!heads.length) return;
+      if (!heads.length || !list.getClientRects().length) return; // list hidden behind the phone detail view
       let cur = heads[0].dataset.region;
       if (narrow.matches) {
         const line = $('#topbar').offsetHeight + $('#railTools').offsetHeight + 8;
@@ -1387,7 +1387,7 @@ ${aboutHTML()}`;
       $$('[data-group]', main).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.group === state.group)));
       return refreshCards();
     }
-    if (d.back !== undefined) { document.body.classList.remove('detail-open'); setTopH(); markCurrent(); window.scrollTo(0, 0); return; }
+    if (d.back !== undefined) { document.body.classList.remove('detail-open'); setTopH(); markCurrent(); window.scrollTo(0, 0); syncRegionTabs(); return; }
     if (d.export !== undefined) return exportFavs();
     if (d.import !== undefined) return $('#importFile').click();
     if (d.backup === 'connect') return connectBackup();
@@ -1424,6 +1424,7 @@ ${aboutHTML()}`;
   });
   list.addEventListener('scroll', syncRegionTabs, { passive: true });
   window.addEventListener('scroll', () => { if (narrow.matches) syncRegionTabs(); }, { passive: true });
+  narrow.addEventListener('change', () => { markCurrent(); syncRegionTabs(); });
 
   let swipe = null;
   main.addEventListener('pointerdown', e => {
