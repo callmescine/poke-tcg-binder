@@ -295,6 +295,8 @@ input::placeholder { color: var(--muted); }
 .save-line i { width: 9px; height: 9px; border-radius: 50%; background: var(--ok); flex: none; }
 .save-line.warn i { background: var(--heart); }
 .fav-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.pdf-btn { margin-left: auto; font-variant-numeric: tabular-nums; }
+.pdf-btn[aria-busy="true"] { opacity: 1; cursor: progress; }
 .hint { margin: 0; color: var(--muted); font-size: 13px; }
 .mon-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .mon-chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 12px 2px 2px; border-radius: 999px; border: 1px solid var(--line); background: var(--sheet); font-weight: 600; font-size: 13.5px; }
@@ -623,7 +625,9 @@ input::placeholder { color: var(--muted); }
   const MONTHS = 'Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec'.split(' ');
   const HEART = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.6s-7.6-4.6-9.6-9.3C1 7.8 3.3 4.4 6.8 4.4c2.1 0 3.6 1.1 5.2 3 1.6-1.9 3.1-3 5.2-3 3.5 0 5.8 3.4 4.4 6.9-2 4.7-9.6 9.3-9.6 9.3z"/></svg>';
   const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-star"/></svg>';
+  const DOWNLOAD = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m-4.5-4.5L12 15l4.5-4.5M5 19.5h14"/></svg>';
   const PER_PAGE = 9;
+  const ARRANGED = { dex: 'Arranged by Pokédex number', added: 'Arranged by date added', release: 'Arranged by release date' };
 
   const esc = s => String(s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
   const pad3 = n => String(n).padStart(3, '0');
@@ -1137,6 +1141,7 @@ ${aboutHTML()}`;
   <label for="binderSort"${state.favView === 'grid' ? ' hidden' : ''}>Arrange <select id="binderSort">
     <option value="dex">Pokédex number</option><option value="added">Date added</option><option value="release">Release date</option></select></label>
   <label for="binderRegion">Region <select id="binderRegion"><option value="all">All regions</option>${REGIONS.map(r => `<option value="${r.k}">${r.name}</option>`).join('')}</select></label>
+  <button class="btn pdf-btn" type="button" id="pdfBtn" data-pdf title="Save this binder as a PDF, nine cards to a page">${DOWNLOAD}<span>Export PDF</span></button>
 </div>
 <div id="favBody"></div>
 ${mons.length ? `<section class="group"><header class="group-head"><h3>Starred Pokémon</h3><span class="n">${mons.length}</span></header>
@@ -1147,6 +1152,7 @@ ${aboutHTML()}`;
     $('#binderRegion').value = state.binderRegion;
     renderFavBody();
     renderSafe();
+    renderPdfBtn();
   }
   function renderFavBody() {
     const body = $('#favBody');
@@ -1212,7 +1218,7 @@ ${aboutHTML()}`;
     const sideCls = binder.two ? side : 'right';
     if (pi === 0) {
       const dexes = Array.from(new Set(binder.list.map(homeDex))).slice(0, 18);
-      const arr = { dex: 'Arranged by Pokédex number', added: 'Arranged by date added', release: 'Arranged by release date' }[state.binderSort];
+      const arr = ARRANGED[state.binderSort];
       return `<div class="page ${sideCls} inside"><div class="pad">
   <div class="plate"><b>Favorites</b><span>${plural(binder.list.length, 'card')} · ${plural(pages, 'page')}</span></div>
   <div class="cover-sprites">${dexes.map(d => `<img src="${spriteUrl(d)}" alt="" title="${esc(MON[d - 1].n)}">`).join('')}</div>
@@ -1525,17 +1531,21 @@ ${aboutHTML()}`;
   }
   function hideNotice() { $('#notice').hidden = true; setTopH(); }
 
+  function saveFile(blob, name) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 60000); // a big PDF can take a moment to start saving
+  }
   function exportFavs() {
     const p = activeProfile();
     if (!p) return;
     const data = payload();
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `pokedex-art-favorites-${slug(p.name)}-${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+    saveFile(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }),
+      `pokedex-art-favorites-${slug(p.name)}-${new Date().toISOString().slice(0, 10)}.json`);
     toast(`Downloaded a backup of ${p.name}’s ${plural(data.cards.length, 'card')} and ${plural(data.pokemon.length, 'starred Pokémon', 'starred Pokémon')}`);
   }
   $('#importFile').addEventListener('change', async e => {
@@ -1551,6 +1561,227 @@ ${aboutHTML()}`;
       toast('That file isn’t a favorites backup. Choose the .json file this page saved.');
     }
   });
+
+  /* ---------- PDF export ----------
+     Each page is drawn on a canvas in the site's own fonts and kept as one JPEG, and the PDF around those pages
+     is written here, so there's no PDF library to load. A canvas can only be saved when every image drawn on it
+     allows that. images.pokemontcg.io doesn't, so its cards are drawn from Scrydex's copy of the same card.
+     TCGdex allows it, but some of its images arrive with that permission sent twice, which browsers refuse, so
+     those cards try the smaller TCGdex scan and then Scrydex, which shows a card back when it has no scan. */
+  const PDF_SCALE = 2.5; // canvas pixels per PDF point, about 180 dpi
+  const PDF_INK = { ink: '#131A2B', muted: '#586276', line: '#D4DAE5', soft: '#F3F5F9', gold: '#9C6A00' };
+  const pdfJob = { busy: false, done: 0, total: 0 };
+  // Scrydex's medium scans (366 px wide) are as sharp as a card on the page gets at this scale, at a third of the download
+  const scrydexMedium = c => `https://images.scrydex.com/pokemon/${encodeURIComponent(c.i)}/medium`;
+  const pdfImageUrls = c => !c.im ? []
+    : c.im.includes('tcgdex.net') ? [bigUrl(c.im), c.im, scrydexMedium(c)]
+    : [c.im.includes('scrydex.com') ? c.im.replace(/\/small$/, '/medium') : scrydexMedium(c)];
+  // Letter paper where it's the norm, A4 everywhere else
+  const pdfPaper = () => /-(US|CA|MX|PH)$/i.test(navigator.language || '') ? [612, 792] : [595.28, 841.89];
+  function pdfLayout(W, H) {
+    const top = 32, head = 48, bottom = 30, cap = 36, gx = 18, gy = 12;
+    const cw = Math.min((W - 72 - 2 * gx) / 3, ((H - top - head - bottom - 2 * gy) / 3 - cap) * 63 / 88);
+    return { top, cap, gx, gy, cw, ch: cw * 88 / 63, x0: (W - 3 * cw - 2 * gx) / 2, y0: top + head };
+  }
+  function renderPdfBtn() {
+    const b = $('#pdfBtn');
+    if (!b) return;
+    b.disabled = pdfJob.busy || !activeProfile() || !binderList().length;
+    b.setAttribute('aria-busy', String(pdfJob.busy));
+    b.querySelector('span').textContent = pdfJob.busy ? `Making PDF · ${pdfJob.done}/${pdfJob.total}` : 'Export PDF';
+  }
+  // the first of urls that loads, or null
+  async function loadPdfImage(urls) {
+    for (const url of urls) {
+      const img = await new Promise(resolve => {
+        const im = new Image();
+        const timer = setTimeout(() => resolve(null), 30000);
+        im.crossOrigin = 'anonymous';
+        im.onload = () => { clearTimeout(timer); resolve(im); };
+        im.onerror = () => { clearTimeout(timer); resolve(null); };
+        im.src = url;
+      });
+      if (img) return img;
+    }
+    return null;
+  }
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+  // draws s at x, y, cut short with … when it's wider than max, and returns the width it took
+  function pdfText(ctx, s, x, y, font, color, max, align) {
+    ctx.font = font;
+    ctx.fillStyle = color;
+    ctx.textAlign = align || 'left';
+    if (max && ctx.measureText(s).width > max) {
+      while (s.length > 1 && ctx.measureText(s + '…').width > max) s = s.slice(0, -1);
+      s = s.trimEnd() + '…';
+    }
+    ctx.fillText(s, x, y);
+    return ctx.measureText(s).width;
+  }
+  // the favicon's lens, from its 64-unit drawing
+  function drawLens(ctx, x, y, r) {
+    const disc = (rad, fill) => { ctx.beginPath(); ctx.arc(0, 0, rad, 0, Math.PI * 2); ctx.fillStyle = fill; ctx.fill(); };
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(r / 31, r / 31);
+    disc(31, '#131A2B');
+    disc(25.5, '#EEF1F6');
+    const g = ctx.createRadialGradient(-4.8, -6.4, 0, -4.8, -6.4, 28.8);
+    g.addColorStop(0, '#FF6B7D');
+    g.addColorStop(0.5, '#D3122E');
+    g.addColorStop(1, '#7E0819');
+    disc(20, g);
+    ctx.fillStyle = 'rgba(255, 255, 255, .9)';
+    ctx.beginPath();
+    ctx.ellipse(-7, -8, 7.5, 5, -35 * Math.PI / 180, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255, 255, 255, .45)';
+    ctx.beginPath();
+    ctx.arc(8.5, 9, 2.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  function drawPdfCard(ctx, job, c, img, x, y) {
+    const { L, F } = job;
+    const w = L.cw, h = L.ch, r = w * 0.048;
+    ctx.save();
+    ctx.shadowColor = 'rgba(19, 26, 43, .26)';
+    ctx.shadowBlur = 4 * PDF_SCALE; // shadows don't follow the canvas scale
+    ctx.shadowOffsetY = 1.2 * PDF_SCALE;
+    roundRect(ctx, x, y, w, h, r);
+    ctx.fillStyle = img ? '#FFFFFF' : PDF_INK.soft;
+    ctx.fill();
+    ctx.restore();
+    if (img) {
+      ctx.save();
+      roundRect(ctx, x, y, w, h, r);
+      ctx.clip();
+      // fill the card's shape, trimming a sliver when a scan is a little wider or taller than a real card
+      const k = Math.max(w / img.naturalWidth, h / img.naturalHeight);
+      const iw = img.naturalWidth * k, ih = img.naturalHeight * k;
+      ctx.drawImage(img, x + (w - iw) / 2, y + (h - ih) / 2, iw, ih);
+      ctx.restore();
+    } else {
+      pdfText(ctx, c.n, x + w / 2, y + h / 2 - 3, `700 9px ${F.body}`, PDF_INK.ink, w - 16, 'center');
+      pdfText(ctx, c.im ? 'Image didn’t load' : 'No scan available yet', x + w / 2, y + h / 2 + 9, `500 7px ${F.body}`, PDF_INK.muted, w - 16, 'center');
+    }
+    ctx.lineWidth = 0.5;
+    ctx.strokeStyle = 'rgba(19, 26, 43, .16)';
+    roundRect(ctx, x, y, w, h, r);
+    ctx.stroke();
+    const b = y + h;
+    pdfText(ctx, c.n, x, b + 12, `700 8.5px ${F.body}`, PDF_INK.ink, w);
+    const small = `500 7.2px ${F.body}`;
+    ctx.font = small;
+    const no = ` · ${c.no}`;
+    const setW = pdfText(ctx, c.set.n, x, b + 22, small, PDF_INK.muted, w - ctx.measureText(no).width);
+    pdfText(ctx, no, x + setW, b + 22, small, PDF_INK.muted);
+    const when = c.promo ? '' : fmtMonth(c.date);
+    const whenW = when ? pdfText(ctx, when, x + w, b + 32, `500 6.8px ${F.mono}`, PDF_INK.muted, 0, 'right') + 6 : 0;
+    const starW = STARS[c.r] ? pdfText(ctx, STARS[c.r] + ' ', x, b + 32, `600 7.2px ${F.body}`, PDF_INK.gold) : 0;
+    pdfText(ctx, c.r, x + starW, b + 32, `600 7.2px ${F.body}`, PDF_INK.ink, w - starW - whenW);
+  }
+  function drawPdfPage(ctx, job, slice, imgs, no) {
+    const { W, H, L, F } = job;
+    const left = L.x0, right = W - L.x0, top = L.top;
+    ctx.setTransform(PDF_SCALE, 0, 0, PDF_SCALE, 0, 0);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, W, H);
+    ctx.textBaseline = 'alphabetic';
+    drawLens(ctx, left + 13, top + 15, 13);
+    pdfText(ctx, 'Pokédex Art Card Index', right, top + 12, `600 9px ${F.display}`, PDF_INK.muted, 0, 'right');
+    const pageW = pdfText(ctx, `Page ${no} of ${job.pages}`, right, top + 27, `500 8px ${F.mono}`, PDF_INK.muted, 0, 'right');
+    pdfText(ctx, job.title, left + 34, top + 15, `700 17px ${F.display}`, PDF_INK.ink, right - left - 34 - 130);
+    pdfText(ctx, job.sub, left + 34, top + 28, `500 8.5px ${F.body}`, PDF_INK.muted, right - left - 34 - pageW - 16);
+    ctx.fillStyle = PDF_INK.line;
+    ctx.fillRect(left, top + 38, right - left, 0.75);
+    slice.forEach((c, k) => drawPdfCard(ctx, job, c, imgs[k],
+      L.x0 + (k % 3) * (L.cw + L.gx), L.y0 + Math.floor(k / 3) * (L.ch + L.cap + L.gy)));
+  }
+  // a minimal PDF: each page is one full-page JPEG
+  function pdfFile(pages, W, H, title) {
+    const enc = new TextEncoder();
+    const parts = [], at = [];
+    let size = 0;
+    const put = x => { const b = typeof x === 'string' ? enc.encode(x) : x; parts.push(b); size += b.length; };
+    const obj = (n, body) => { at[n] = size; put(`${n} 0 obj\n${body}\nendobj\n`); };
+    const text = s => '<FEFF' + Array.from({ length: s.length }, (_, i) => s.charCodeAt(i).toString(16).padStart(4, '0')).join('') + '>';
+    const w = +W.toFixed(2), h = +H.toFixed(2);
+    const draw = `q ${w} 0 0 ${h} 0 0 cm /P Do Q`;
+    put('%PDF-1.4\n');
+    put(new Uint8Array([0x25, 0xE2, 0xE3, 0xCF, 0xD3, 0x0A])); // marks the file as binary
+    obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
+    obj(2, `<< /Type /Pages /Count ${pages.length} /Kids [${pages.map((_, i) => `${4 + 3 * i} 0 R`).join(' ')}] >>`);
+    obj(3, `<< /Title ${text(title)} /Creator ${text('Pokédex Art Card Index')} /CreationDate (D:${new Date().toISOString().replace(/\D/g, '').slice(0, 14)}Z) >>`);
+    pages.forEach((pg, i) => {
+      const n = 4 + 3 * i;
+      obj(n, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${w} ${h}] /Resources << /XObject << /P ${n + 2} 0 R >> >> /Contents ${n + 1} 0 R >>`);
+      obj(n + 1, `<< /Length ${draw.length} >>\nstream\n${draw}\nendstream`);
+      at[n + 2] = size;
+      put(`${n + 2} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${pg.w} /Height ${pg.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${pg.bytes.length} >>\nstream\n`);
+      put(pg.bytes);
+      put('\nendstream\nendobj\n');
+    });
+    const xref = size;
+    put(`xref\n0 ${at.length}\n0000000000 65535 f \n${at.slice(1).map(o => `${String(o).padStart(10, '0')} 00000 n \n`).join('')}`);
+    put(`trailer\n<< /Size ${at.length} /Root 1 0 R /Info 3 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+    return new Blob(parts, { type: 'application/pdf' });
+  }
+  async function exportPdf() {
+    const p = activeProfile();
+    const list = binderList();
+    if (!p || !list.length || pdfJob.busy) return;
+    Object.assign(pdfJob, { busy: true, done: 0, total: list.length });
+    renderPdfBtn();
+    try {
+      const [W, H] = pdfPaper();
+      const css = getComputedStyle(document.documentElement);
+      const F = { display: css.getPropertyValue('--font-display').trim(), body: css.getPropertyValue('--font-body').trim(), mono: css.getPropertyValue('--font-mono').trim() };
+      const region = state.binderRegion === 'all' ? '' : ` · ${REGIONS.find(r => r.k === state.binderRegion).name} only`;
+      const job = {
+        W, H, F, L: pdfLayout(W, H), pages: Math.ceil(list.length / PER_PAGE),
+        title: `${p.name}’s favorites`,
+        sub: `${plural(list.length, 'card')} · ${ARRANGED[state.binderSort]}${region} · ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
+      };
+      await Promise.all([`700 17px ${F.display}`, `600 9px ${F.display}`, `500 8px ${F.body}`, `600 8px ${F.body}`, `700 8px ${F.body}`, `500 8px ${F.mono}`]
+        .map(f => document.fonts.load(f, 'Aé’…'))).catch(() => { /* fall back to system fonts */ });
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(W * PDF_SCALE);
+      canvas.height = Math.round(H * PDF_SCALE);
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingQuality = 'high';
+      const pages = [];
+      let missing = 0;
+      const pageCards = i => list.slice(i * PER_PAGE, (i + 1) * PER_PAGE);
+      const fetchPage = i => Promise.all(pageCards(i).map(c => loadPdfImage(pdfImageUrls(c)).then(img => { pdfJob.done++; renderPdfBtn(); return img; })));
+      let next = fetchPage(0);
+      for (let i = 0; i < job.pages; i++) {
+        const imgs = await next;
+        if (i + 1 < job.pages) next = fetchPage(i + 1); // the next page's cards download while this one is drawn
+        missing += imgs.filter((img, k) => !img && pageCards(i)[k].im).length;
+        drawPdfPage(ctx, job, pageCards(i), imgs, i + 1);
+        const jpeg = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.88));
+        if (!jpeg) throw new Error('canvas');
+        pages.push({ bytes: new Uint8Array(await jpeg.arrayBuffer()), w: canvas.width, h: canvas.height });
+      }
+      saveFile(pdfFile(pages, W, H, job.title), `pokedex-art-favorites-${slug(p.name)}-${new Date().toISOString().slice(0, 10)}.pdf`);
+      toast(`Saved ${p.name}’s binder as a PDF: ${plural(list.length, 'card')} on ${plural(job.pages, 'page')}`
+        + (missing ? `. ${plural(missing, 'image')} didn’t load, so ${missing === 1 ? 'that card shows its name' : 'those cards show their names'} instead.` : ''), missing ? 7000 : 4500);
+    } catch (e) {
+      toast('Couldn’t make the PDF. Check your connection and try again.', 6000);
+    } finally {
+      pdfJob.busy = false;
+      renderPdfBtn();
+    }
+  }
 
   /* ---------- events ---------- */
   document.addEventListener('click', e => {
@@ -1594,6 +1825,7 @@ ${aboutHTML()}`;
       return;
     }
     if (d.export !== undefined) return exportFavs();
+    if (d.pdf !== undefined) return exportPdf();
     if (d.import !== undefined) return $('#importFile').click();
     if (d.pfOpen !== undefined) return openProfiles();
     if (d.pfClose !== undefined) return closeProfiles();
