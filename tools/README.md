@@ -20,7 +20,7 @@ The site's card list lives inside `index.html`, in `<script id="kai-data" type="
 
 ## When something changes
 
-- **A new set.** If TCGdex and pokemontcg.io give it different IDs, add the pair to `MAP` in `build_dataset.py`. A new Black Star promo series goes in `PROMO_SETS`, and in `fetch_tcgdex_promos.py` if pokemontcg.io doesn't list it.
+- **A new set.** TCGdex IDs like `me06` or `sv05.5` are matched to pokemontcg.io's `me6` and `sv5pt5` automatically. If a new set's IDs differ in some other way, add the pair to `MAP` in `build_dataset.py`, or the cross-check skips that set without saying so. A new Black Star promo series goes in `PROMO_SETS`, and in `fetch_tcgdex_promos.py` if pokemontcg.io doesn't list it.
 - **A new rarity name.** Add it to `RARITY_CAT`, and to `RARITY_LABEL` if it needs a friendlier name. The site's categories are `CATS` in `index.html`.
 - **New Pokémon.** Raise `MAX_DEX` and `REGIONS` in `build_dataset.py`, the sweep range in `update_data.sh`, and `REGIONS` in `index.html`.
 - **Hand-made entries.** `RGB_MEW`, `MEP_BY_EYE` and `NAME_FIX` cover cards that the databases list wrongly or not at all. Remove a `MEP_BY_EYE` entry once TCGdex lists that card.

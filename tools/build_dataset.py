@@ -44,13 +44,9 @@ NAME_FIX = {'ナッシー[Exeggutor]': 'Exeggutor (Japanese print)'}
 RC_TOTAL = {'g1': 32, 'bw11': 25}
 # 30th Celebration's R/RGB, G/RGB and B/RGB Mew secret rares, numbered with letters and listed as Common upstream
 RGB_MEW = {('me55', 'R'), ('me55', 'G'), ('me55', 'B')}
-# MEP promos that have images on Scrydex but no card data in either database yet; identified from the card images
-MEP_BY_EYE = [(89, 'Mega Zeraora ex', [807]), (90, 'Mega Darkrai ex', [491]), (91, 'Mega Dragonite ex', [149]),
-              (93, 'Pikachu', [25]), (94, 'Alolan Exeggutor', [103]), (95, 'Lucario', [448]), (96, 'Moltres', [146]),
-              (97, 'Articuno', [144]), (98, 'Zapdos', [145]), (99, 'Greninja ex', [658]), (100, 'Sylveon ex', [700]),
-              (101, 'Nidorina', [30]), (102, 'Victini', [494]), (103, 'Zeraora', [807]), (104, 'Mewtwo', [150]),
-              (105, 'Mew', [151]), (106, 'Ditto', [132]), (107, 'Pikachu ex', [25]), (108, 'Espeon ex', [196]),
-              (109, 'Pikachu ex', [25]), (110, 'Umbreon ex', [197])]
+# MEP promos that have images on Scrydex but no card data in either database yet, identified from the card images,
+# as (number, name, [dex numbers]). Empty since TCGdex listed MEP 089-110 in November 2026.
+MEP_BY_EYE = []
 
 
 def categorize(sid, c):
@@ -132,6 +128,15 @@ MAP = {'sv01': 'sv1', 'sv02': 'sv2', 'sv03': 'sv3', 'sv03.5': 'sv3pt5', 'sv04': 
        'swsh10.5': 'pgo', 'swsh12.5': 'swsh12pt5', 'swsh12.5gg': 'swsh12pt5gg', 'sm3.5': 'sm35', 'sm7.5': 'sm75',
        'me01': 'me1', 'me02': 'me2', 'me02.5': 'me2pt5', 'me03': 'me3', 'me04': 'me4', 'me05': 'me5', '30th': 'me55',
        '30th-c': 'me55c', 'fut2020': 'fut20', 'cel25cc': 'cel25c', 'hgssp': 'hsp'}
+
+
+def ptcg_set(tsid):
+    """pokemontcg.io's ID for a TCGdex set: MAP for the odd ones, otherwise me06 -> me6 and sv05.5 -> sv5pt5, so new sets match"""
+    if tsid in MAP: return MAP[tsid]
+    m = re.match(r'^(sv|me)0*(\d+)(?:\.(\d))?$', tsid)
+    return f"{m.group(1)}{m.group(2)}{'pt' + m.group(3) if m.group(3) else ''}" if m else tsid
+
+
 # second opinion: when the main database files a card under a plain rarity but TCGdex names an art rarity, trust TCGdex
 TDX_CAT = {'Illustration rare': ('ir', 'Illustration Rare'), 'Special illustration rare': ('sir', 'Special Illustration Rare'),
            'Hyper rare': ('secret', 'Hyper Rare'), 'Mega Hyper Rare': ('secret', 'Mega Hyper Rare'), 'Secret Rare': ('secret', 'Secret Rare'),
@@ -141,7 +146,7 @@ TDX_CAT = {'Illustration rare': ('ir', 'Illustration Rare'), 'Special illustrati
 tdx_rarity = {}
 for f in glob.glob(f'{TDX}/sweep/*.json'):
     for c in json.load(open(f)):
-        tdx_rarity[(MAP.get(c['set']['id'], c['set']['id']), norm_num(c['localId']))] = c.get('rarity')
+        tdx_rarity[(ptcg_set(c['set']['id']), norm_num(c['localId']))] = c.get('rarity')
 second_opinion = []
 
 
@@ -204,7 +209,7 @@ print(f'TCGdex and by-eye promo supplement: {len(added)} cards')
 
 # --- set table ---------------------------------------------------------------------------
 set_out = {}
-for sid in {c['s'] for c in cards}:
+for sid in sorted({c['s'] for c in cards}):  # sorted, so a rebuild with nothing new gives the same file
     if sid in sets:
         st = sets[sid]
         set_out[sid] = {'n': st['name'], 'e': st['series'], 'd': st['releaseDate'].replace('/', '-'),
@@ -237,7 +242,7 @@ missing, disagree = [], []
 for f in glob.glob(f'{TDX}/sweep/*.json'):
     for c in json.load(open(f)):
         tsid = c['set']['id']
-        psid = MAP.get(tsid, tsid)
+        psid = ptcg_set(tsid)
         if psid not in sets: continue  # Pocket, McDonald's, trainer kits and pre-2006 sets
         st = sets[psid]
         if st['releaseDate'] < START: continue
