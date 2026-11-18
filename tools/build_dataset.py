@@ -45,8 +45,8 @@ RC_TOTAL = {'g1': 32, 'bw11': 25}
 # 30th Celebration's R/RGB, G/RGB and B/RGB Mew secret rares, numbered with letters and listed as Common upstream
 RGB_MEW = {('me55', 'R'), ('me55', 'G'), ('me55', 'B')}
 # MEP promos that have images on Scrydex but no card data in either database yet, identified from the card images,
-# as (number, name, [dex numbers]). Empty since TCGdex listed MEP 089-110 in November 2026.
-MEP_BY_EYE = []
+# as (number, name, [dex numbers], illustrator). Each one is skipped once TCGdex lists it, as MEP 089-110 were.
+MEP_BY_EYE = [(117, 'Kyogre', [382], 'Nurikabe')]  # Delta Reign ETB promo: Storm Emerald's Kyogre art rare, cut from the English packs
 
 
 def categorize(sid, c):
@@ -199,10 +199,10 @@ for f in sorted(glob.glob(f'{TDX}/cards/*.json')):
     })
     added.append(f'{tsid}:{lid} {c["name"]}')
     seen.add((tsid, norm_num(lid)))
-for n, name, dex in MEP_BY_EYE:
+for n, name, dex, artist in MEP_BY_EYE:
     if ('mep', str(n)) in seen: continue
     cards.append({'i': f'mep-{n:03d}', 'n': name, 's': 'mep', 'no': f'MEP {n:03d}', 'r': 'Promo', 'c': 'promo',
-                  'a': '', 'im': f'https://images.scrydex.com/pokemon/mep-{n}/small', 'dx': dex})
+                  'a': artist, 'im': f'https://images.scrydex.com/pokemon/mep-{n}/small', 'dx': dex})
     added.append(f'mep:{n} {name} (by eye)')
     seen.add(('mep', str(n)))
 print(f'TCGdex and by-eye promo supplement: {len(added)} cards')
